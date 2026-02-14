@@ -3,72 +3,62 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Điều phối V12.2 PRO - Dũng Nguyễn</title>
+    <title>Điều phối V12.3 - Toàn Màn Hình</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        :root { --primary: #ff1744; --dark: #2d3436; --bg: #f8f9fa; --teal: #00b894; }
-        body { margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg); overflow: hidden; }
+        :root { --primary: #ff1744; --dark: #2d3436; --bg: #f8f9fa; --teal: #00b894; --gray: #b2bec3; }
+        body, html { margin: 0; padding: 0; height: 100%; width: 100%; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
         
-        /* LOGIN */
         #login-overlay { position: fixed; inset: 0; background: var(--dark); display: flex; align-items: center; justify-content: center; z-index: 10000; }
         .login-box { background: #fff; padding: 30px; border-radius: 20px; width: 85%; max-width: 350px; text-align: center; border-bottom: 5px solid var(--primary); }
-        .login-box h2 { color: var(--primary); margin-bottom: 20px; }
         .login-box input { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 10px; border: 1px solid #ddd; font-size: 16px; box-sizing: border-box; }
         .login-box button { width: 100%; padding: 14px; background: var(--primary); color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; }
 
-        /* APP LAYOUT */
-        #main-app { display: none; height: 100vh; flex-direction: column; position: relative; }
-        #map { flex-grow: 1; width: 100%; z-index: 1; background: #fdfdfd; }
+        /* GIAO DIỆN CHÍNH DÙNG POSITION ĐỂ TRÀN MÀN HÌNH */
+        #main-app { display: none; height: 100vh; width: 100vw; flex-direction: column; position: relative; }
         
+        /* BẢN ĐỒ LUÔN CHIẾM HẾT PHÍA SAU */
+        #map { position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 1; background: #fdfdfd; }
+        
+        /* SIDEBAR ĐÈ LÊN TRÊN */
         #sidebar { 
-            width: 100%; max-height: 60%; background: #fff; z-index: 1000; 
-            padding: 15px; box-sizing: border-box; border-top: 4px solid var(--primary);
-            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); overflow-y: auto;
-            box-shadow: 0 -5px 20px rgba(0,0,0,0.1);
+            position: absolute; bottom: 0; left: 0; width: 100%; max-height: 60%; 
+            background: #fff; z-index: 1000; padding: 15px; box-sizing: border-box; 
+            border-top: 4px solid var(--primary); transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow-y: auto; box-shadow: 0 -5px 25px rgba(0,0,0,0.2);
         }
-        #sidebar.hidden { transform: translateY(100%); }
+        #sidebar.hidden { transform: translateY(105%); }
 
-        /* NÚT MENU BAY (FLOATING) */
         #floating-toggle {
-            position: fixed; bottom: 25px; right: 20px; z-index: 2000;
-            background: var(--dark); color: white; border: none; width: 60px; height: 60px;
-            border-radius: 50%; font-weight: bold; cursor: pointer;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;
-            font-size: 20px; border: 2px solid var(--primary);
+            position: fixed; bottom: 20px; right: 20px; z-index: 2000;
+            background: var(--dark); color: white; border: 2px solid var(--primary); width: 55px; height: 55px;
+            border-radius: 50%; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center;
+            font-size: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
         }
 
         @media (min-width: 768px) {
-            #main-app { flex-direction: row; }
-            #sidebar { width: 420px; max-height: 100%; border-top: none; border-right: 4px solid var(--primary); transform: none !important; }
-            #sidebar.hidden { transform: translateX(-100%) !important; }
-            #floating-toggle { bottom: 25px; left: 390px; right: auto; }
+            #sidebar { top: 0; left: 0; bottom: 0; width: 400px; max-height: 100%; border-top: none; border-right: 4px solid var(--primary); transform: none !important; }
+            #sidebar.hidden { transform: translateX(-105%) !important; }
+            #floating-toggle { bottom: 25px; left: 375px; right: auto; }
             #sidebar.hidden ~ #floating-toggle { left: 20px; }
         }
 
-        .card { background: #fff; border-radius: 12px; padding: 12px; margin-bottom: 12px; border: 1px solid #edf2f7; }
+        .card { background: #fffaf0; border-radius: 12px; padding: 12px; margin-bottom: 12px; border: 1px solid #f3e5ab; }
         .card-title { font-weight: 800; color: var(--primary); margin-bottom: 8px; font-size: 11px; text-transform: uppercase; }
-        input, select, button.action-btn { width: 100%; padding: 12px; margin-top: 8px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 14px; box-sizing: border-box; }
+        input, select, button.action-btn { width: 100%; padding: 12px; margin-top: 8px; border-radius: 8px; border: 1px solid #ced4da; font-size: 14px; box-sizing: border-box; }
         .btn-search { background: var(--dark); color: white; font-weight: bold; }
 
-        .stats-box { background: #f8fafc; padding: 12px; border-radius: 12px; margin-top: 10px; border-left: 6px solid var(--primary); }
+        .stats-box { background: #ffffff; padding: 10px; border-radius: 12px; margin-top: 10px; border-left: 6px solid var(--primary); box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
         .dealer-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11px; display: none; }
-        .dealer-table th { text-align: left; padding: 8px 4px; border-bottom: 1px solid #eee; color: #666; }
-        .dealer-table td { padding: 8px 4px; border-top: 1px solid #f1f5f9; }
+        .dealer-table th { text-align: left; border-bottom: 1px solid #eee; padding: 5px; color: #666; }
+        .dealer-table td { padding: 8px 5px; border-top: 1px solid #f9f9f9; }
         
         .leaflet-heatmap-layer { pointer-events: none !important; opacity: 1.0 !important; mix-blend-mode: multiply; filter: saturate(1.5); }
     </style>
 </head>
 <body>
 
-<div id="login-overlay">
-    <div class="login-box">
-        <h2>HỆ THỐNG V12.2</h2>
-        <input type="text" id="username" placeholder="Tên đăng nhập">
-        <input type="password" id="password" placeholder="Mật khẩu">
-        <button onclick="checkLogin()">KÍCH HOẠT</button>
-        <p id="err" style="color:red; font-size:12px; margin-top:10px; display:none;">Sai thông tin!</p>
-    </div>
-</div>
+<div id="login-overlay"><div class="login-box"><h2>ĐĂNG NHẬP V12.3</h2><input type="text" id="username" placeholder="User"><input type="password" id="password" placeholder="Pass"><button onclick="checkLogin()">KÍCH HOẠT</button></div></div>
 
 <div id="main-app">
     <div id="map"></div>
@@ -77,14 +67,14 @@
     <div id="sidebar">
         <div class="card">
             <div class="card-title">🔍 PHÂN TÍCH KHU VỰC</div>
-            <input type="text" id="areaSearchInput" placeholder="Vd: Hải Phòng" onkeypress="if(event.key==='Enter') searchArea()">
-            <button class="action-btn btn-search" onclick="searchArea()">SOI VIỀN CHIẾN LƯỢC</button>
+            <input type="text" id="areaSearchInput" placeholder="Vd: Hà Nội" onkeypress="if(event.key==='Enter') searchArea()">
+            <button class="action-btn btn-search" onclick="searchArea()">SOI VIỀN</button>
         </div>
         
         <div class="card">
             <div class="card-title">📍 CÀI ĐẶT ĐIỀU PHỐI (KM)</div>
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                <select id="pinToggle"><option value="off">CHẾ ĐỘ XEM</option><option value="on">CHẾ ĐỘ CẮM KHO</option></select>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                <select id="pinToggle"><option value="off">XEM</option><option value="on">CẮM KHO</option></select>
                 <input type="number" id="radiusInput" value="3" step="0.5" oninput="updateAllRadius()">
             </div>
         </div>
@@ -103,14 +93,12 @@
 
 <script>
     function checkLogin() {
-        const u = document.getElementById('username').value;
-        const p = document.getElementById('password').value;
-        if (u === 'admin' && p === '123456') {
+        if (document.getElementById('username').value === 'admin' && document.getElementById('password').value === '123456') {
             document.getElementById('login-overlay').style.display = 'none';
             document.getElementById('main-app').style.display = 'flex';
-            setTimeout(() => { map.invalidateSize(); }, 300);
+            setTimeout(() => { map.invalidateSize(); }, 400);
             loadDataOnline(); loadSavedWarehouses();
-        } else { document.getElementById('err').style.display = 'block'; }
+        }
     }
 
     function toggleSidebar() {
@@ -118,7 +106,8 @@
         const btn = document.getElementById('floating-toggle');
         sb.classList.toggle('hidden');
         btn.innerText = sb.classList.contains('hidden') ? "☰" : "✖";
-        setTimeout(() => { map.invalidateSize(); }, 400);
+        // QUAN TRỌNG: Cập nhật lại kích thước bản đồ khi ẩn/hiện menu
+        setTimeout(() => { map.invalidateSize(); }, 450);
     }
 
     const map = L.map('map', { zoomSnap: 0.1, zoomControl: false }).setView([21.02, 105.83], 12);
@@ -133,28 +122,32 @@
             const r = await fetch(url); const t = await r.text();
             const rows = t.split(/\r?\n/).slice(1);
             dealers = []; dealerLayer.clearLayers(); let hp = [];
+            
             rows.forEach(line => {
                 const col = line.split(/,|\t/); if (col.length < 6) return;
                 let ds = parseFloat(col[5].toString().replace(/\./g, '').replace(/,/g, '')) || 0;
-                let lat = parseFloat(col[4].toString().replace(',', '.')); let lng = parseFloat(col[3].toString().replace(',', '.'));
+                let lat = parseFloat(col[4].toString().replace(',', '.'));
+                let lng = parseFloat(col[3].toString().replace(',', '.'));
+                
                 if (!isNaN(lat) && !isNaN(lng)) {
-                    const m = L.circleMarker([lat, lng], { radius: 3, color: '#ff1744', weight: 1.5, fillOpacity: 0.9, interactive: true }).addTo(dealerLayer);
+                    // SỬA LẠI MÀU ĐIỂM: 0 ĐỒNG THÌ MÀU XÁM, CÓ TIỀN THÌ MÀU ĐỎ
+                    const pointColor = ds > 0 ? '#ff1744' : '#b2bec3';
+                    const m = L.circleMarker([lat, lng], { radius: 3.5, color: pointColor, weight: 1, fillOpacity: 0.9, fillColor: pointColor, interactive: true }).addTo(dealerLayer);
                     m.bindTooltip(`<b>${col[1]}</b><br>DS: ${ds.toLocaleString()}`, { sticky: true });
+                    
                     dealers.push({ latlng: L.latLng(lat, lng), ds, ten: col[1], lat, lng });
-                    if (ds > 0) hp.push([lat, lng, (ds / 300000000)]);
+                    
+                    // CHỈ PHÁT NHIỆT KHI CÓ DOANH SỐ > 0
+                    if (ds > 0) {
+                        let intensity = (ds >= 2000000000) ? 2.5 : (ds / 350000000);
+                        hp.push([lat, lng, intensity]);
+                    }
                 }
             });
             if (heatLayer) heatLayerGroup.removeLayer(heatLayer);
-            heatLayer = L.heatLayer(hp, { radius: 80, blur: 18, max: 0.55, gradient: { 0.3: '#ff5722', 0.6: '#ff1744', 0.8: '#b71c1c', 1.0: '#000000' } }).addTo(heatLayerGroup);
+            heatLayer = L.heatLayer(hp, { radius: 75, blur: 15, max: 0.55, gradient: { 0.3: '#ff5722', 0.6: '#ff1744', 0.8: '#b71c1c', 1.0: '#000000' } }).addTo(heatLayerGroup);
             updateStats();
-        } catch (e) { console.error("Error Loading Data"); }
-    }
-
-    async function getRouteDist(start, end) {
-        try {
-            const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=false`);
-            const d = await r.json(); return d.code === 'Ok' ? (d.routes[0].distance / 1000).toFixed(1) : "N/A";
-        } catch (e) { return "Err"; }
+        } catch (e) { console.error("Data error"); }
     }
 
     async function searchArea() {
@@ -175,13 +168,20 @@
 
     function addWarehouse(latlng, radiusKm, savedName = null) {
         const id = Date.now() + Math.random();
-        const radiusM = radiusKm * 1000;
+        const rM = radiusKm * 1000;
         const m = L.marker(latlng, { draggable: true }).addTo(map);
-        const c = L.circle(latlng, { radius: radiusM, color: '#2d3436', weight: 1.5, fillOpacity: 0.05, interactive: false }).addTo(map);
-        const wh = { id, marker: m, circle: c, latlng, radius: radiusM, name: savedName || ("Kho " + (warehouses.length + 1)) };
+        const c = L.circle(latlng, { radius: rM, color: '#2d3436', weight: 1.5, fillOpacity: 0.05, interactive: false }).addTo(map);
+        const wh = { id, marker: m, circle: c, latlng, radius: rM, name: savedName || ("Kho " + (warehouses.length + 1)) };
         m.on('dragend', () => { wh.latlng = m.getLatLng(); c.setLatLng(wh.latlng); updateStats(); saveWarehouses(); });
         m.on('contextmenu', () => { map.removeLayer(m); map.removeLayer(c); warehouses = warehouses.filter(w => w.id !== id); updateStats(); saveWarehouses(); });
         warehouses.push(wh); updateStats(); saveWarehouses();
+    }
+
+    async function getRouteDist(start, end) {
+        try {
+            const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=false`);
+            const d = await r.json(); return d.code === 'Ok' ? (d.routes[0].distance / 1000).toFixed(1) : "N/A";
+        } catch (e) { return "Err"; }
     }
 
     async function toggleTable(id) {
@@ -201,10 +201,10 @@
             const inR = dealers.filter(d => w.latlng.distanceTo(d.latlng) <= w.radius).sort((a,b) => b.ds - a.ds);
             const sumDS = inR.reduce((a, b) => a + b.ds, 0);
             let rows = inR.map(d => {
-                const percent = sumDS > 0 ? ((d.ds / sumDS) * 100).toFixed(1) : 0;
-                return `<tr><td>${d.ten}</td><td style="color:var(--primary); font-weight:bold;">${percent}%</td><td class="dist-cell" data-lat="${d.lat}" data-lng="${d.lng}" style="color:var(--teal); font-weight:bold;">...</td></tr>`;
+                const p = sumDS > 0 ? ((d.ds / sumDS) * 100).toFixed(1) : 0;
+                return `<tr><td>${d.ten}</td><td style="color:var(--primary); font-weight:bold;">${p}%</td><td class="dist-cell" data-lat="${d.lat}" data-lng="${d.lng}" style="color:var(--teal); font-weight:bold;">...</td></tr>`;
             }).join('');
-            container.innerHTML += `<div class="stats-box"><div style="display:flex; justify-content:space-between; align-items:center;"><span style="font-weight:800; font-size:14px;">${w.name}</span><span style="cursor:pointer; color:var(--primary); font-size:22px;" onclick="toggleTable(${w.id})">▾</span></div><div style="font-size:11px; margin-top:5px;">Phủ: ${inR.length} khách | Tổng: <b>${sumDS.toLocaleString()}</b></div><table class="dealer-table" id="tbl-${w.id}"><thead><tr><th>Khách</th><th>Tỷ trọng</th><th>Km xe</th></tr></thead><tbody>${rows || '<tr><td colspan="3">Trống</td></tr>'}</tbody></table></div>`;
+            container.innerHTML += `<div class="stats-box"><div style="display:flex; justify-content:space-between; align-items:center;"><span style="font-weight:800; font-size:14px;">${w.name}</span><span style="cursor:pointer; color:var(--primary); font-size:22px;" onclick="toggleTable(${w.id})">▾</span></div><div style="font-size:11px; margin-top:5px;">Phủ: ${inR.length} khách | Tổng: <b>${sumDS.toLocaleString()}</b></div><table class="dealer-table" id="tbl-${w.id}"><thead><tr><th>Khách</th><th>Tỷ trọng</th><th>Km</th></tr></thead><tbody>${rows || '<tr><td colspan="3">Trống</td></tr>'}</tbody></table></div>`;
         });
     }
 
