@@ -3,31 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Hệ thống Điều phối V12.0 - Chiến Lược</title>
+    <title>Điều phối V12.1 - Fix Đăng Nhập</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         :root { --primary: #ff1744; --dark: #2d3436; --bg: #f8f9fa; --teal: #00b894; }
         body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); overflow: hidden; }
         
+        /* ĐĂNG NHẬP */
         #login-overlay { position: fixed; inset: 0; background: var(--dark); display: flex; align-items: center; justify-content: center; z-index: 10000; }
         .login-box { background: #fff; padding: 30px; border-radius: 20px; width: 85%; max-width: 350px; text-align: center; border-bottom: 5px solid var(--primary); }
+        .login-box h2 { color: var(--primary); margin-bottom: 20px; font-size: 22px; }
         .login-box input { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 10px; border: 1px solid #ddd; font-size: 16px; box-sizing: border-box; }
-        .login-box button { width: 100%; padding: 14px; background: var(--primary); color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; }
+        .login-box button { width: 100%; padding: 14px; background: var(--primary); color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 16px; }
 
+        /* GIAO DIỆN CHÍNH */
         #main-app { display: none; height: 100vh; flex-direction: column; position: relative; }
-        #map { flex-grow: 1; width: 100%; z-index: 1; }
+        #map { flex-grow: 1; width: 100%; z-index: 1; background: #fdfdfd; }
         
         #sidebar { 
             width: 100%; max-height: 55%; background: #fff; z-index: 1000; 
             padding: 15px; box-sizing: border-box; border-top: 4px solid var(--primary);
-            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); overflow-y: auto;
+            transition: transform 0.4s ease; overflow-y: auto;
         }
         #sidebar.hidden { transform: translateY(100%); max-height: 0; padding: 0; border: none; }
 
         #menu-toggle {
             position: absolute; bottom: 20px; right: 20px; z-index: 2000;
             background: var(--dark); color: white; border: none; padding: 12px 20px;
-            border-radius: 50px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px;
+            border-radius: 50px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
         }
 
         @media (min-width: 768px) {
@@ -38,25 +41,32 @@
             #sidebar.hidden ~ #menu-toggle { left: 20px; }
         }
 
-        .card { background: #fff; border-radius: 12px; padding: 12px; margin-bottom: 12px; border: 1px solid #edf2f7; shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .card-title { font-weight: 800; color: var(--primary); margin-bottom: 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
+        .card { background: #fff; border-radius: 12px; padding: 12px; margin-bottom: 12px; border: 1px solid #edf2f7; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .card-title { font-weight: 800; color: var(--primary); margin-bottom: 8px; font-size: 12px; text-transform: uppercase; }
         
-        input, select, button.action-btn { width: 100%; padding: 12px; margin-top: 8px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 14px; box-sizing: border-box; outline: none; }
-        .btn-search { background: var(--dark); color: white; border: none; font-weight: bold; }
-        .btn-refresh { background: var(--teal); color: white; border: none; font-weight: bold; }
+        input, select, button.action-btn { width: 100%; padding: 12px; margin-top: 8px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 14px; box-sizing: border-box; }
+        .btn-search { background: var(--dark); color: white; border: none; font-weight: bold; cursor: pointer; }
+        .btn-refresh { background: var(--teal); color: white; border: none; font-weight: bold; cursor: pointer; }
 
-        .stats-box { background: #f8fafc; padding: 12px; border-radius: 12px; margin-top: 10px; border-left: 6px solid var(--primary); position: relative; }
+        .stats-box { background: #f8fafc; padding: 12px; border-radius: 12px; margin-top: 10px; border-left: 6px solid var(--primary); }
         .dealer-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11px; display: none; }
-        .dealer-table th { text-align: left; color: #64748b; padding-bottom: 5px; }
+        .dealer-table th { text-align: left; color: #64748b; padding-bottom: 5px; border-bottom: 1px solid #eee; }
         .dealer-table td { padding: 8px 0; border-top: 1px solid #f1f5f9; }
         
-        .leaflet-heatmap-layer { pointer-events: none !important; opacity: 0.95 !important; mix-blend-mode: multiply; z-index: 200 !important; }
-        .leaflet-marker-pane { z-index: 600 !important; }
+        .leaflet-heatmap-layer { pointer-events: none !important; opacity: 0.95 !important; mix-blend-mode: multiply; filter: saturate(1.4); z-index: 200 !important; }
     </style>
 </head>
 <body>
 
-<div id="login-overlay"><div class="login-box"><h2>HỆ THỐNG V12.0</h2><input type="text" id="username" placeholder="Tên đăng nhập"><input type="password" id="password" placeholder="Mật khẩu"><button onclick="checkLogin()">KÍCH HOẠT HỆ THỐNG</button></div></div>
+<div id="login-overlay">
+    <div class="login-box">
+        <h2>HỆ THỐNG V12.1</h2>
+        <input type="text" id="username" placeholder="Tên đăng nhập" autocomplete="off">
+        <input type="password" id="password" placeholder="Mật khẩu">
+        <button onclick="checkLogin()">KÍCH HOẠT HỆ THỐNG</button>
+        <p id="error-msg" style="color:red; font-size:12px; margin-top:10px; display:none;">Sai thông tin đăng nhập!</p>
+    </div>
+</div>
 
 <div id="main-app">
     <div id="map"></div>
@@ -65,7 +75,7 @@
     <div id="sidebar">
         <div class="card">
             <div class="card-title">🔍 KHU VỰC CHIẾN LƯỢC</div>
-            <input type="text" id="areaSearchInput" placeholder="Nhập Quận/Huyện/Tỉnh..." onkeypress="if(event.key==='Enter') searchArea()">
+            <input type="text" id="areaSearchInput" placeholder="Vd: Ninh Bình" onkeypress="if(event.key==='Enter') searchArea()">
             <button class="action-btn btn-search" onclick="searchArea()">PHÂN TÍCH VÙNG</button>
         </div>
         
@@ -82,7 +92,7 @@
         <div class="card" style="margin-top: 20px; background: #f1f5f9;">
             <div class="card-title" style="color: #64748b;">⚙️ HỆ THỐNG</div>
             <button class="action-btn btn-refresh" onclick="loadDataOnline()">LÀM MỚI DỮ LIỆU G-SHEETS</button>
-            <button class="action-btn" style="background:#fff; color:var(--dark); border:1px solid #ddd; font-weight:bold;" onclick="clearAllWarehouses()">XÓA TẤT CẢ KHO</button>
+            <button class="action-btn" style="background:#fff; color:#2d3436; border:1px solid #ddd; font-weight:bold;" onclick="clearAllWarehouses()">XÓA TẤT CẢ KHO</button>
         </div>
     </div>
 </div>
@@ -91,20 +101,35 @@
 <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 
 <script>
-    function checkLogin() { if (document.getElementById('username').value === 'admin' && document.getElementById('password').value === '123456') { document.getElementById('login-overlay').style.display = 'none'; document.getElementById('main-app').style.display = 'flex'; map.invalidateSize(); loadDataOnline(); loadSavedWarehouses(); } }
+    // --- FIX LOGIN LOGIC ---
+    function checkLogin() {
+        const u = document.getElementById('username').value;
+        const p = document.getElementById('password').value;
+        if (u === 'admin' && p === '123456') {
+            document.getElementById('login-overlay').style.display = 'none';
+            document.getElementById('main-app').style.display = 'flex';
+            setTimeout(() => { map.invalidateSize(); }, 200);
+            loadDataOnline();
+            loadSavedWarehouses();
+        } else {
+            document.getElementById('error-msg').style.display = 'block';
+        }
+    }
 
     function toggleSidebar() {
         const sb = document.getElementById('sidebar');
         const btn = document.getElementById('menu-toggle');
         sb.classList.toggle('hidden');
         btn.innerText = sb.classList.contains('hidden') ? "☰ HIỆN MENU" : "✖ ĐÓNG MENU";
-        setTimeout(() => { map.invalidateSize(); }, 400);
+        setTimeout(() => { map.invalidateSize(); }, 450);
     }
 
+    // --- MAP ENGINE ---
     const map = L.map('map', { zoomSnap: 0.1, zoomControl: false }).setView([21.02, 105.83], 12);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
 
-    let dealers = [], warehouses = [], highlightLayer = L.layerGroup().addTo(map), heatLayerGroup = L.layerGroup().addTo(map), dealerLayer = L.layerGroup().addTo(map), heatLayer = null;
+    let dealers = [], warehouses = [], highlightLayer = L.layerGroup().addTo(map), 
+        heatLayerGroup = L.layerGroup().addTo(map), dealerLayer = L.layerGroup().addTo(map), heatLayer = null;
 
     async function loadDataOnline() {
         const url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSqx48yei68qBJFSiHZzxCeGO0df4IDE6md9hzu7TUv5GjgOvU9yIpm4lEN6HJw9zJuek4YYMj8XAyn/pub?gid=0&single=true&output=csv";
@@ -117,7 +142,7 @@
                 let ds = parseFloat(col[5].toString().replace(/\./g, '').replace(/,/g, '')) || 0;
                 let lat = parseFloat(col[4].toString().replace(',', '.')); let lng = parseFloat(col[3].toString().replace(',', '.'));
                 if (!isNaN(lat) && !isNaN(lng)) {
-                    const m = L.circleMarker([lat, lng], { radius: 3, color: var(--primary), weight: 1.5, fillOpacity: 0.9, interactive: true }).addTo(dealerLayer);
+                    const m = L.circleMarker([lat, lng], { radius: 3, color: '#ff1744', weight: 1.5, fillOpacity: 0.9, interactive: true }).addTo(dealerLayer);
                     m.bindTooltip(`<b>${col[1]}</b><br>DS: ${ds.toLocaleString()}`, { sticky: true });
                     dealers.push({ latlng: L.latLng(lat, lng), ds, ten: col[1], lat, lng });
                     if (ds > 0) hp.push([lat, lng, (ds / 300000000)]);
@@ -126,14 +151,14 @@
             if (heatLayer) heatLayerGroup.removeLayer(heatLayer);
             heatLayer = L.heatLayer(hp, { radius: 80, blur: 18, max: 0.55, gradient: { 0.3: '#ff5722', 0.6: '#ff1744', 0.8: '#b71c1c', 1.0: '#000000' } }).addTo(heatLayerGroup);
             updateStats();
-        } catch (e) { console.error(e); }
+        } catch (e) { console.error("Sheets Error"); }
     }
 
     async function getRouteDist(start, end) {
         try {
             const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=false`);
             const d = await r.json(); return d.code === 'Ok' ? (d.routes[0].distance / 1000).toFixed(1) : "N/A";
-        } catch (e) { return "Lỗi"; }
+        } catch (e) { return "Err"; }
     }
 
     async function searchArea() {
@@ -142,7 +167,7 @@
         const data = await resp.json();
         if (data.length > 0) { 
             highlightLayer.clearLayers(); 
-            L.geoJSON(data[0].geojson, { style: { color: var(--primary), weight: 3, fillOpacity: 0 }, interactive: false }).addTo(highlightLayer); 
+            L.geoJSON(data[0].geojson, { style: { color: '#ff1744', weight: 3, fillOpacity: 0 }, interactive: false }).addTo(highlightLayer); 
             map.fitBounds(L.geoJSON(data[0].geojson).getBounds(), { padding: [30,30] }); 
         }
     }
@@ -156,7 +181,7 @@
         const id = Date.now() + Math.random();
         const radiusMeters = radiusKm * 1000;
         const m = L.marker(latlng, { draggable: true }).addTo(map);
-        const c = L.circle(latlng, { radius: radiusMeters, color: var(--dark), weight: 1.5, fillOpacity: 0.05, interactive: false }).addTo(map);
+        const c = L.circle(latlng, { radius: radiusMeters, color: '#2d3436', weight: 1.5, fillOpacity: 0.05, interactive: false }).addTo(map);
         const wh = { id, marker: m, circle: c, latlng, radius: radiusMeters, name: savedName || ("Kho " + (warehouses.length + 1)) };
         
         m.on('dragend', () => { wh.latlng = m.getLatLng(); c.setLatLng(wh.latlng); updateStats(); saveWarehouses(); });
@@ -176,12 +201,12 @@
 
     function updateStats() {
         const container = document.getElementById('warehouse-list');
-        container.innerHTML = '<strong style="color:var(--dark); font-size:11px; margin:10px 0; display:block; letter-spacing:1px;">PHÂN TÍCH ĐIỀU PHỐI:</strong>';
+        container.innerHTML = '<strong style="color:#2d3436; font-size:11px; margin:10px 0; display:block; letter-spacing:1px;">PHÂN TÍCH ĐIỀU PHỐI:</strong>';
         warehouses.forEach(w => {
             const inR = dealers.filter(d => w.latlng.distanceTo(d.latlng) <= w.radius).sort((a,b) => b.ds - a.ds);
             const sumDS = inR.reduce((a, b) => a + b.ds, 0);
-            let rows = inR.map(d => `<tr><td>${d.ten}</td><td style="color:var(--primary); font-weight:bold;">${d.ds.toLocaleString()}</td><td class="dist-cell" data-lat="${d.lat}" data-lng="${d.lng}" style="color:var(--teal); font-weight:bold;">...</td></tr>`).join('');
-            container.innerHTML += `<div class="stats-box"><div style="display:flex; justify-content:space-between; align-items:center;"><span style="font-weight:800; font-size:14px;">${w.name}</span><span style="cursor:pointer; color:var(--primary); font-size:20px;" onclick="toggleTable(${w.id})">▾</span></div><div style="font-size:11px; margin-bottom:8px; color:#64748b;">Vùng phủ: ${inR.length} khách | Tổng: <b>${sumDS.toLocaleString()}</b></div><table class="dealer-table" id="tbl-${w.id}"><thead><tr><th>Khách</th><th>DS</th><th>Km</th></tr></thead><tbody>${rows || '<tr><td colspan="3">Trống</td></tr>'}</tbody></table></div>`;
+            let rows = inR.map(d => `<tr><td>${d.ten}</td><td style="color:#ff1744; font-weight:bold;">${d.ds.toLocaleString()}</td><td class="dist-cell" data-lat="${d.lat}" data-lng="${d.lng}" style="color:#00b894; font-weight:bold;">...</td></tr>`).join('');
+            container.innerHTML += `<div class="stats-box"><div style="display:flex; justify-content:space-between; align-items:center;"><span style="font-weight:800; font-size:14px;">${w.name}</span><span style="cursor:pointer; color:#ff1744; font-size:20px;" onclick="toggleTable(${w.id})">▾</span></div><div style="font-size:11px; margin-bottom:8px;">DS: <b style="color:#ff1744">${sumDS.toLocaleString()}</b></div><table class="dealer-table" id="tbl-${w.id}"><thead><tr><th>Khách</th><th>DS</th><th>Km</th></tr></thead><tbody>${rows || '<tr><td colspan="3">Trống</td></tr>'}</tbody></table></div>`;
         });
     }
 
@@ -195,7 +220,7 @@
         data.forEach(d => addWarehouse(L.latLng(d.lat, d.lng), d.radius, d.name));
     }
 
-    function clearAllWarehouses() { if(confirm("Xóa toàn bộ kho đã cắm?")) { warehouses.forEach(w => { map.removeLayer(w.marker); map.removeLayer(w.circle); }); warehouses = []; updateStats(); localStorage.removeItem('savedWarehouses'); } }
+    function clearAllWarehouses() { if(confirm("Xóa toàn bộ kho?")) { warehouses.forEach(w => { map.removeLayer(w.marker); map.removeLayer(w.circle); }); warehouses = []; updateStats(); localStorage.removeItem('savedWarehouses'); } }
 
     function updateAllRadius() { const rKm = parseFloat(document.getElementById('radiusInput').value) || 3; warehouses.forEach(w => { w.radius = rKm * 1000; w.circle.setRadius(rKm * 1000); }); updateStats(); saveWarehouses(); }
 </script>
