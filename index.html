@@ -3,17 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Điều phối V12.5 - Ưu Tiên Đỏ Tuyệt Đối</title>
+    <title>Điều phối V12.6 - Lưu Đăng Nhập</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         :root { --primary: #ff1744; --dark: #2d3436; --bg: #f8f9fa; --teal: #00b894; --gray: #b2bec3; }
         body, html { margin: 0; padding: 0; height: 100%; width: 100%; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
         
+        /* LOGIN OVERLAY */
         #login-overlay { position: fixed; inset: 0; background: var(--dark); display: flex; align-items: center; justify-content: center; z-index: 10000; }
         .login-box { background: #fff; padding: 30px; border-radius: 20px; width: 85%; max-width: 350px; text-align: center; border-bottom: 5px solid var(--primary); }
+        .login-box h2 { color: var(--primary); margin-bottom: 20px; }
         .login-box input { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 10px; border: 1px solid #ddd; font-size: 16px; box-sizing: border-box; }
         .login-box button { width: 100%; padding: 14px; background: var(--primary); color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; }
 
+        /* MAIN APP */
         #main-app { display: none; height: 100vh; width: 100vw; flex-direction: column; position: relative; }
         #map { position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 1; background: #fdfdfd; }
         
@@ -54,7 +57,15 @@
 </head>
 <body>
 
-<div id="login-overlay"><div class="login-box"><h2>ĐĂNG NHẬP V12.5</h2><input type="text" id="username" placeholder="User"><input type="password" id="password" placeholder="Pass"><button onclick="checkLogin()">KÍCH HOẠT</button></div></div>
+<div id="login-overlay">
+    <div class="login-box">
+        <h2>ĐĂNG NHẬP V12.6</h2>
+        <input type="text" id="username" placeholder="User">
+        <input type="password" id="password" placeholder="Pass">
+        <button onclick="checkLogin()">KÍCH HOẠT</button>
+        <p id="error-text" style="color: red; font-size: 12px; display: none; margin-top: 10px;">Sai tài khoản hoặc mật khẩu!</p>
+    </div>
+</div>
 
 <div id="main-app">
     <div id="map"></div>
@@ -79,7 +90,7 @@
         
         <div class="card" style="background: #f1f5f9; border: none;">
             <button class="action-btn" style="background:var(--teal); color:white; border:none; font-weight:bold;" onclick="loadDataOnline()">LÀM MỚI DỮ LIỆU</button>
-            <button class="action-btn" style="background:#fff; color:var(--dark); font-weight:bold;" onclick="clearAllWarehouses()">XÓA TẤT CẢ KHO</button>
+            <button class="action-btn" style="background:#fff; color:var(--dark); font-weight:bold;" onclick="logout()">ĐĂNG XUẤT</button>
         </div>
     </div>
 </div>
@@ -88,15 +99,41 @@
 <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 
 <script>
+    // --- LOGIN & AUTO-LOGIN ENGINE ---
+    window.onload = function() {
+        const isLogged = localStorage.getItem('isLogged');
+        if (isLogged === 'true') {
+            enterApp();
+        }
+    };
+
     function checkLogin() {
-        if (document.getElementById('username').value === 'admin' && document.getElementById('password').value === '123456') {
-            document.getElementById('login-overlay').style.display = 'none';
-            document.getElementById('main-app').style.display = 'flex';
-            setTimeout(() => { map.invalidateSize(); }, 400);
-            loadDataOnline(); loadSavedWarehouses();
+        const u = document.getElementById('username').value;
+        const p = document.getElementById('password').value;
+        if (u === 'admin' && p === 'HA5566') {
+            localStorage.setItem('isLogged', 'true');
+            enterApp();
+        } else {
+            document.getElementById('error-text').style.display = 'block';
         }
     }
 
+    function logout() {
+        if(confirm("Bạn có muốn đăng xuất và xóa phiên đăng nhập?")) {
+            localStorage.removeItem('isLogged');
+            location.reload();
+        }
+    }
+
+    function enterApp() {
+        document.getElementById('login-overlay').style.display = 'none';
+        document.getElementById('main-app').style.display = 'flex';
+        setTimeout(() => { map.invalidateSize(); }, 400);
+        loadDataOnline(); 
+        loadSavedWarehouses();
+    }
+
+    // --- INTERFACE ENGINE ---
     function toggleSidebar() {
         const sb = document.getElementById('sidebar');
         const btn = document.getElementById('floating-toggle');
@@ -117,9 +154,7 @@
             const r = await fetch(url); const t = await r.text();
             const rows = t.split(/\r?\n/).slice(1);
             dealers = []; dealerLayer.clearLayers(); 
-            let hp = [];
-            let grayPoints = []; // Mảng chứa điểm xám
-            let redPoints = [];  // Mảng chứa điểm đỏ
+            let hp = [], grayPoints = [], redPoints = [];
 
             rows.forEach(line => {
                 const col = line.split(/,|\t/); if (col.length < 6) return;
@@ -144,7 +179,6 @@
                     m.bindTooltip(`<b>${col[1]}</b><br>DS: ${ds.toLocaleString()}`, { sticky: true });
                     dealers.push({ latlng: L.latLng(lat, lng), ds, ten: col[1], lat, lng, marker: m });
                     
-                    // PHÂN TÁCH ĐỂ VẼ ĐÚNG THỨ TỰ
                     if (hasSales) {
                         redPoints.push(m);
                         let intensity = (ds >= 2000000000) ? 2.5 : (ds / 350000000);
@@ -155,14 +189,13 @@
                 }
             });
 
-            // VẼ CƯỠNG BỨC: ĐIỂM XÁM DƯỚI, ĐIỂM ĐỎ TRÊN
             grayPoints.forEach(p => p.addTo(dealerLayer));
             redPoints.forEach(p => p.addTo(dealerLayer));
 
             if (heatLayer) heatLayerGroup.removeLayer(heatLayer);
             heatLayer = L.heatLayer(hp, { radius: 75, blur: 15, max: 0.55, gradient: { 0.3: '#ff5722', 0.6: '#ff1744', 0.8: '#b71c1c', 1.0: '#000000' } }).addTo(heatLayerGroup);
             updateStats();
-        } catch (e) { console.error("Data error"); }
+        } catch (e) { console.error("Sheets sync failed"); }
     }
 
     async function searchArea() {
@@ -211,7 +244,7 @@
 
     function updateStats() {
         const container = document.getElementById('warehouse-list');
-        container.innerHTML = '<strong style="color:var(--dark); font-size:11px; margin:10px 0; display:block;">PHÂN TÍCH ĐIỀU PHỐI:</strong>';
+        container.innerHTML = '<strong style="color:var(--dark); font-size:11px; margin:10px 0; display:block;">PHÂN TÍCH CHIẾN LƯỢC:</strong>';
         warehouses.forEach(w => {
             const inR = dealers.filter(d => w.latlng.distanceTo(d.latlng) <= w.radius).sort((a,b) => b.ds - a.ds);
             const sumDS = inR.reduce((a, b) => a + b.ds, 0);
@@ -219,7 +252,7 @@
                 const p = sumDS > 0 ? ((d.ds / sumDS) * 100).toFixed(1) : 0;
                 return `<tr><td>${d.ten}</td><td style="color:var(--primary); font-weight:bold;">${p}%</td><td class="dist-cell" data-lat="${d.lat}" data-lng="${d.lng}" style="color:var(--teal); font-weight:bold;">...</td></tr>`;
             }).join('');
-            container.innerHTML += `<div class="stats-box"><div style="display:flex; justify-content:space-between; align-items:center;"><span style="font-weight:800; font-size:14px;">${w.name}</span><span style="cursor:pointer; color:var(--primary); font-size:22px;" onclick="toggleTable(${w.id})">▾</span></div><div style="font-size:11px; margin-top:5px;">Phủ: ${inR.length} khách | Tổng: <b>${sumDS.toLocaleString()}</b></div><table class="dealer-table" id="tbl-${w.id}"><thead><tr><th>Khách</th><th>Tỷ trọng</th><th>Km</th></tr></thead><tbody>${rows || '<tr><td colspan="3">Trống</td></tr>'}</tbody></table></div>`;
+            container.innerHTML += `<div class="stats-box"><div style="display:flex; justify-content:space-between; align-items:center;"><span style="font-weight:800; font-size:14px;">${w.name}</span><span style="cursor:pointer; color:var(--primary); font-size:22px;" onclick="toggleTable(${w.id})">▾</span></div><div style="font-size:11px; margin-top:5px;">Tổng DS: <b>${sumDS.toLocaleString()}</b></div><table class="dealer-table" id="tbl-${w.id}"><thead><tr><th>Khách</th><th>Tỷ trọng</th><th>Km</th></tr></thead><tbody>${rows || '<tr><td colspan="3">Trống</td></tr>'}</tbody></table></div>`;
         });
     }
 
