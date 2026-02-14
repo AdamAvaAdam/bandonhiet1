@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Điều phối V12.3 - Toàn Màn Hình</title>
+    <title>Điều phối V12.4 - Ưu Tiên Mỏ Vàng</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         :root { --primary: #ff1744; --dark: #2d3436; --bg: #f8f9fa; --teal: #00b894; --gray: #b2bec3; }
@@ -14,13 +14,9 @@
         .login-box input { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 10px; border: 1px solid #ddd; font-size: 16px; box-sizing: border-box; }
         .login-box button { width: 100%; padding: 14px; background: var(--primary); color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; }
 
-        /* GIAO DIỆN CHÍNH DÙNG POSITION ĐỂ TRÀN MÀN HÌNH */
         #main-app { display: none; height: 100vh; width: 100vw; flex-direction: column; position: relative; }
-        
-        /* BẢN ĐỒ LUÔN CHIẾM HẾT PHÍA SAU */
         #map { position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 1; background: #fdfdfd; }
         
-        /* SIDEBAR ĐÈ LÊN TRÊN */
         #sidebar { 
             position: absolute; bottom: 0; left: 0; width: 100%; max-height: 60%; 
             background: #fff; z-index: 1000; padding: 15px; box-sizing: border-box; 
@@ -58,7 +54,7 @@
 </head>
 <body>
 
-<div id="login-overlay"><div class="login-box"><h2>ĐĂNG NHẬP V12.3</h2><input type="text" id="username" placeholder="User"><input type="password" id="password" placeholder="Pass"><button onclick="checkLogin()">KÍCH HOẠT</button></div></div>
+<div id="login-overlay"><div class="login-box"><h2>ĐĂNG NHẬP V12.4</h2><input type="text" id="username" placeholder="User"><input type="password" id="password" placeholder="Pass"><button onclick="checkLogin()">KÍCH HOẠT</button></div></div>
 
 <div id="main-app">
     <div id="map"></div>
@@ -106,7 +102,6 @@
         const btn = document.getElementById('floating-toggle');
         sb.classList.toggle('hidden');
         btn.innerText = sb.classList.contains('hidden') ? "☰" : "✖";
-        // QUAN TRỌNG: Cập nhật lại kích thước bản đồ khi ẩn/hiện menu
         setTimeout(() => { map.invalidateSize(); }, 450);
     }
 
@@ -130,14 +125,24 @@
                 let lng = parseFloat(col[3].toString().replace(',', '.'));
                 
                 if (!isNaN(lat) && !isNaN(lng)) {
-                    // SỬA LẠI MÀU ĐIỂM: 0 ĐỒNG THÌ MÀU XÁM, CÓ TIỀN THÌ MÀU ĐỎ
-                    const pointColor = ds > 0 ? '#ff1744' : '#b2bec3';
-                    const m = L.circleMarker([lat, lng], { radius: 3.5, color: pointColor, weight: 1, fillOpacity: 0.9, fillColor: pointColor, interactive: true }).addTo(dealerLayer);
-                    m.bindTooltip(`<b>${col[1]}</b><br>DS: ${ds.toLocaleString()}`, { sticky: true });
+                    const hasSales = ds > 0;
+                    const pointColor = hasSales ? '#ff1744' : '#b2bec3';
                     
+                    // SỬA LẠI THỨ TỰ HIỂN THỊ (zIndexOffset)
+                    // Điểm đỏ (có doanh số) sẽ có zIndexOffset cao hơn (1000) để luôn nằm trên điểm xám
+                    const m = L.circleMarker([lat, lng], { 
+                        radius: 3.5, 
+                        color: pointColor, 
+                        weight: hasSales ? 1.5 : 1, 
+                        fillOpacity: 0.9, 
+                        fillColor: pointColor, 
+                        interactive: true,
+                        zIndexOffset: hasSales ? 1000 : 0 
+                    }).addTo(dealerLayer);
+                    
+                    m.bindTooltip(`<b>${col[1]}</b><br>DS: ${ds.toLocaleString()}`, { sticky: true });
                     dealers.push({ latlng: L.latLng(lat, lng), ds, ten: col[1], lat, lng });
                     
-                    // CHỈ PHÁT NHIỆT KHI CÓ DOANH SỐ > 0
                     if (ds > 0) {
                         let intensity = (ds >= 2000000000) ? 2.5 : (ds / 350000000);
                         hp.push([lat, lng, intensity]);
