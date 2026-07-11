@@ -71,6 +71,11 @@
         .search-suggestions { position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #ddd; border-radius: 8px; max-height: 180px; overflow-y: auto; z-index: 2000; display: none; box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
         .suggestion-item { padding: 8px 12px; font-size: 12px; cursor: pointer; border-bottom: 1px solid #f5f5f5; text-align: left; }
         .suggestion-item:hover { background: #f0f2f5; }
+
+        /* Style bổ sung cho bảng con của danh sách vùng */
+        .zone-dealer-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 10px; background: #fff; border: 1px solid #e0e0e0; border-radius: 6px; overflow: hidden; display: none; }
+        .zone-dealer-table th { background: #f1f2f6; text-align: left; padding: 5px; border-bottom: 1px solid #ddd; }
+        .zone-dealer-table td { padding: 5px; border-bottom: 1px solid #f5f5f5; }
     </style>
 </head>
 <body>
@@ -93,13 +98,13 @@
         <div class="card">
             <div style="font-weight:800; color:var(--primary); font-size:11px; margin-bottom:8px;">🔍 TÌM KIẾM CHIẾN LƯỢC</div>
             
-            <!-- Tìm kiếm địa phương kèm tổng hợp số liệu hình học -->
+            <!-- Tìm kiếm địa phương kèm tổng hợp số liệu và danh sách đại lý nội vùng -->
             <div style="margin-bottom: 12px;">
                 <input type="text" id="areaSearchInput" placeholder="Soi viền vùng. Vd: Hà Nội, Hải Dương" onkeypress="if(event.key==='Enter') searchArea()">
                 <button onclick="searchArea()" style="width:100%; padding:10px; background:var(--dark); color:white; border:none; border-radius:8px; font-weight:bold; font-size:11px; cursor:pointer; margin-top:5px;">SOI VIỀN & THỐNG KÊ VÙNG</button>
                 
                 <!-- DANH SÁCH KHU VỰC ĐANG SOI -->
-                <div id="areaZoneList" style="margin-top: 8px; max-height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px;"></div>
+                <div id="areaZoneList" style="margin-top: 8px; max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px;"></div>
             </div>
 
             <!-- Tìm kiếm Đại lý định vị nhanh -->
@@ -247,7 +252,6 @@
             if (heatLayer) heatLayerGroup.removeLayer(heatLayer);
             heatLayer = L.heatLayer(hp, { radius: 25, blur: 20, max: 0.5, gradient: {0.4: '#bdc3c7', 0.6: '#e67e22', 0.8: '#f1c40f', 1.0: '#e74c3c'} }).addTo(heatLayerGroup);
             updateStats();
-            // Nếu có vùng đang soi, quét tính toán lại số liệu khi data online thay đổi
             if(activeZones.length > 0) recalculateAllZonesData();
         } catch (e) { console.log("Lỗi tải data"); }
     }
@@ -325,24 +329,17 @@
     function removeWarehouse(id) { if(confirm("Xóa?")) { const wh = warehouses.find(w => w.id === id); map.removeLayer(wh.marker); map.removeLayer(wh.circle); warehouses = warehouses.filter(w => w.id !== id); updateStats(); saveUserWarehouses(); } }
     function saveUserWarehouses() { localStorage.setItem('savedWarehousesLog', JSON.stringify(warehouses.filter(w => !w.isCompany).map(w => ({ lat: w.latlng.lat, lng: w.latlng.lng, radius: w.radius/1000, name: w.name })))); }
     
-    // --- THUẬT TOÁN ĐA GIÁC: KIỂM TRA ĐẠI LÝ NẰM TRONG ĐƯỜNG VIỀN KHU VỰC COMPLEX ---
+    // --- THUẬT TOÁN ĐA GIÁC HÌNH HỌC KHÔNG GIAN ---
     function isPointInGeoJSON(lat, lng, geoLayer) {
         let inside = false;
-        // Duyệt toàn bộ các layer nhỏ (Polygon/MultiPolygon) có trong Feature GeoJSON vừa nạp
         geoLayer.eachLayer(layer => {
             if (inside) return; 
             if (typeof layer.getBounds === 'function') {
-                // Kiểm tra nhanh bằng khung bao vuông (BBox) trước để tối ưu hiệu năng
                 if (!layer.getBounds().contains([lat, lng])) return;
             }
-            
-            // Xử lý kiểm tra toán học chi tiết bằng thuật toán Ray-Casting thông qua tọa độ Leaflet công bố
             if (typeof layer.getLatLngs === 'function') {
                 let parts = layer.getLatLngs();
-                // Khử cấu trúc lồng nhau của MultiPolygon lặp nếu có
                 if (parts.length === 1 && Array.isArray(parts[0])) parts = parts[0];
-                
-                // Thuật toán Ray-Casting kiểm tra đa giác chuẩn
                 if (Array.isArray(parts) && typeof parts[0]?.lat === 'undefined' && Array.isArray(parts[0])) {
                     parts.forEach(subPart => {
                         if(inside) return;
@@ -368,29 +365,32 @@
         return inside;
     }
 
-    // Tính toán số liệu doanh số của riêng từng vùng
+    // Lọc danh sách và thống kê doanh số các đại lý nằm trong khu vực hình học
     function calculateZoneMetrics(geoLayer) {
-        let count = 0;
+        let dealersInside = [];
         let totalDS = 0;
         dealers.forEach(d => {
             if (isPointInGeoJSON(d.lat, d.lng, geoLayer)) {
-                count++;
+                dealersInside.push(d);
                 totalDS += d.ds;
             }
         });
-        return { count, totalDS };
+        // Sắp xếp đại lý có doanh số lớn nhất lên đầu bảng
+        dealersInside.sort((a, b) => b.ds - a.ds);
+        return { dealersInside, count: dealersInside.length, totalDS };
     }
 
     function recalculateAllZonesData() {
         activeZones.forEach(zone => {
             const metrics = calculateZoneMetrics(zone.layer);
+            zone.dealersInside = metrics.dealersInside;
             zone.count = metrics.count;
             zone.totalDS = metrics.totalDS;
         });
         renderAreaZoneList();
     }
 
-    // --- TÍNH NĂNG: SOI NHIỀU KHU VỰC + QUẢN LÝ TỔNG HỢP DOANH SỐ ĐỘC LẬP ---
+    // --- TÍNH NĂNG: SOI NHIỀU KHU VỰC + QUẢN LÝ TỔNG HỢP + BẢNG ĐẠI LÝ SỔ XUỐNG ---
     async function searchArea() {
         const input = document.getElementById('areaSearchInput').value.trim();
         if (!input) return;
@@ -415,7 +415,6 @@
             const zoneId = "zone-" + Date.now() + Math.random().toString(36).substr(2, 5);
             const zoneName = data[0].display_name.split(',')[0];
 
-            // Chạy thuật toán quét dữ liệu đại lý nằm trong khu vực ngay khi tạo viền
             const metrics = calculateZoneMetrics(geoLayer);
 
             activeZones.push({
@@ -423,6 +422,7 @@
                 name: zoneName,
                 color: currentColor,
                 layer: geoLayer,
+                dealersInside: metrics.dealersInside,
                 count: metrics.count,
                 totalDS: metrics.totalDS
             });
@@ -440,15 +440,57 @@
         const container = document.getElementById('areaZoneList');
         if (activeZones.length === 0) { container.innerHTML = ''; return; }
 
-        container.innerHTML = activeZones.map(zone => `
-            <div style="display:flex; justify-content:space-between; align-items:center; background:#f1f2f6; padding:8px 10px; border-radius:6px; border-left:4px solid ${zone.color}; font-size:11px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                <div style="display:flex; flex-direction:column; gap:2px; text-align: left;">
-                    <span style="font-weight:bold; color:var(--dark); max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${zone.name}</span>
-                    <span style="font-size:10px; color:#555;">Thống kê: <b style="color:var(--blue);">${zone.count} ĐL</b> | Doanh số: <b style="color:var(--primary);">${zone.totalDS.toLocaleString()}đ</b></span>
+        container.innerHTML = activeZones.map(zone => {
+            // Khởi tạo bảng danh sách đại lý nội vùng
+            const rowsHtml = zone.dealersInside.map(d => `
+                <tr>
+                    <td style="font-weight:600; color:var(--dark);">${d.ten}</td>
+                    <td style="color:var(--blue); font-weight:bold; text-align:right;">${d.ds.toLocaleString()}đ</td>
+                </tr>
+            `).join('') || '<tr><td colspan="2" style="color:#999; text-align:center; padding:5px;">Không có đại lý nào</td></tr>';
+
+            return `
+                <div style="background:#f1f2f6; padding:8px 10px; border-radius:6px; border-left:4px solid ${zone.color}; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div style="display:flex; flex-direction:column; gap:2px; text-align: left;">
+                            <span style="font-weight:bold; color:var(--dark); max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${zone.name}</span>
+                            <span style="font-size:10px; color:#555;">Thống kê: <b style="color:var(--blue);">${zone.count} ĐL</b> | Doanh số: <b style="color:var(--primary);">${zone.totalDS.toLocaleString()}đ</b></span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <!-- Mũi tên điều hướng bật tắt danh sách -->
+                            <span id="arrow-${zone.id}" style="cursor:pointer; color:var(--primary); font-size:16px; font-weight:bold; padding:2px 4px;" onclick="toggleZoneTable('${zone.id}')">◀</span>
+                            <button onclick="removeSingleZone('${zone.id}')" style="border:none; color:#ff1744; font-weight:bold; background:none; cursor:pointer; padding:2px 5px; font-size:12px;">[X]</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Bảng chứa danh sách tên đại lý đổ xuống -->
+                    <table class="zone-dealer-table" id="ztbl-${zone.id}">
+                        <thead>
+                            <tr>
+                                <th>Tên Đại Lý</th>
+                                <th style="text-align:right;">Doanh Số</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rowsHtml}
+                        </tbody>
+                    </table>
                 </div>
-                <button onclick="removeSingleZone('${zone.id}')" style="border:none; color:#ff1744; font-weight:bold; background:none; cursor:pointer; padding:2px 5px; font-size:12px;">[X]</button>
-            </div>
-        `).join('');
+            `;
+        }).join('');
+    }
+
+    // Hàm điều khiển ẩn/hiện danh sách đại lý của từng khu vực
+    function toggleZoneTable(id) {
+        const tbl = document.getElementById(`ztbl-${id}`);
+        const arrow = document.getElementById(`arrow-${id}`);
+        if (tbl.style.display === "table") {
+            tbl.style.display = "none";
+            arrow.innerText = "◀";
+        } else {
+            tbl.style.display = "table";
+            arrow.innerText = "▼";
+        }
     }
 
     function removeSingleZone(id) {
