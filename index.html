@@ -66,6 +66,12 @@
         .cust-list-item b { color: var(--primary); }
 
         .wh-label { display: inline-block; white-space: nowrap; padding: 3px 8px; border-radius: 4px; color: white; font-size: 11px; font-weight: bold; border: 1.5px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); transform: translate(-50%, -140%); pointer-events: none; }
+        
+        /* Gợi ý tìm kiếm đại lý */
+        .search-container { position: relative; margin-bottom: 8px; }
+        .search-suggestions { position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #ddd; border-radius: 8px; max-height: 180px; overflow-y: auto; z-index: 2000; display: none; box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
+        .suggestion-item { padding: 8px 12px; font-size: 12px; cursor: pointer; border-bottom: 1px solid #f5f5f5; text-align: left; }
+        .suggestion-item:hover { background: #f0f2f5; }
     </style>
 </head>
 <body>
@@ -84,10 +90,24 @@
     <button id="floating-toggle" onclick="toggleSidebar()">☰</button>
 
     <div id="sidebar">
+        <!-- CARD TÌM KIẾM ĐỊA PHƯƠNG & ĐẠI LÝ -->
         <div class="card">
-            <div style="font-weight:800; color:var(--primary); font-size:11px; margin-bottom:8px;">🔍 TÌM KIẾM ĐỊA PHƯƠNG</div>
-            <input type="text" id="areaSearchInput" placeholder="Vd: Hà Nội" onkeypress="if(event.key==='Enter') searchArea()">
-            <button onclick="searchArea()" style="width:100%; padding:10px; background:var(--dark); color:white; border:none; border-radius:8px; margin-top:5px; font-weight:bold; cursor:pointer;">SOI VIỀN KHU VỰC</button>
+            <div style="font-weight:800; color:var(--primary); font-size:11px; margin-bottom:8px;">🔍 TÌM KIẾM CHIẾN LƯỢC</div>
+            
+            <!-- Tìm kiếm địa phương -->
+            <div style="margin-bottom: 12px;">
+                <input type="text" id="areaSearchInput" placeholder="Soi viền vùng. Vd: Hà Nội, Hải Dương" onkeypress="if(event.key==='Enter') searchArea()">
+                <div style="display:flex; gap:5px; margin-top:5px;">
+                    <button onclick="searchArea()" style="flex:2; padding:10px; background:var(--dark); color:white; border:none; border-radius:8px; font-weight:bold; font-size:11px; cursor:pointer;">SOI VIỀN KHU VỰC</button>
+                    <button onclick="clearAreaBorders()" style="flex:1; padding:10px; background:#ffeaa7; color:#2d3436; border:none; border-radius:8px; font-weight:bold; font-size:11px; cursor:pointer;">XÓA VIỀN</button>
+                </div>
+            </div>
+
+            <!-- Tìm kiếm Đại lý -->
+            <div class="search-container">
+                <input type="text" id="dealerSearchInput" placeholder="Tìm tên đại lý để định vị gấp..." oninput="onDealerSearchInput(this.value)">
+                <div id="dealerSuggestions" class="search-suggestions"></div>
+            </div>
         </div>
         
         <div class="card" style="background:#f1f2f6;">
@@ -161,6 +181,10 @@
         { name: 'Kho Hưng Yên', lat: 20.76934, lng: 106.051002 }
     ];
 
+    // Bảng màu phục vụ việc đổi màu viền vùng liên tục
+    const BORDER_COLORS = ['#ff1744', '#0984e3', '#00b894', '#6c5ce7', '#e84393', '#d63031', '#2de300', '#f39c12'];
+    let colorIndex = 0;
+
     const map = L.map('map', { zoomSnap: 0.1, zoomControl: false }).setView([20.8, 106.0], 9);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png').addTo(map);
 
@@ -172,8 +196,10 @@
     map.createPane('paneDealers').style.zIndex = 700;
     let dealers = [], warehouses = [], highlightLayer = L.layerGroup().addTo(map), 
         heatLayerGroup = L.layerGroup().addTo(map), dealerLayer = L.layerGroup().addTo(map), heatLayer = null;
+    
+    // Mảng lưu trữ tham chiếu Marker thực tế để kích hoạt nhanh khi tìm kiếm
+    let dealerMarkersMap = {};
 
-    // --- SỬA LỖI: CLICK BẢN ĐỒ ĐỂ CẮM KHO ---
     map.on('click', function(e) {
         const mode = document.getElementById('pinToggle').value;
         if (mode === 'on') {
@@ -184,7 +210,7 @@
             const name = prompt("Nhập tên kho điều phối:", "Kho mới " + (warehouses.filter(w=>!w.isCompany).length + 1));
             if (name) {
                 addWarehouse(e.latlng, 5, name, false);
-                document.getElementById('pinToggle').value = 'off'; // Trả về chế độ xem sau khi cắm
+                document.getElementById('pinToggle').value = 'off';
             }
         }
     });
@@ -203,7 +229,7 @@
         try {
             const r = await fetch(url); const t = await r.text();
             const rows = t.split(/\r?\n/).slice(1);
-            dealers = []; dealerLayer.clearLayers(); let hp = [];
+            dealers = []; dealerLayer.clearLayers(); dealerMarkersMap = {}; let hp = [];
             rows.forEach(line => {
                 const col = line.split(/,|\t/); if (col.length < 6) return;
                 let ds = parseFloat(col[5].toString().replace(/\./g, '').replace(/,/g, '')) || 0;
@@ -213,7 +239,10 @@
                     if (ds > 0) L.circleMarker([lat, lng], { radius: style.glowRadius, color: 'transparent', fillColor: style.color, fillOpacity: 0.15, pane: 'paneDealers', interactive: false }).addTo(dealerLayer);
                     const m = L.circleMarker([lat, lng], { radius: style.radius, color: style.color, weight: 1.5, fillOpacity: 1, fillColor: style.color, pane: 'paneDealers' }).addTo(dealerLayer);
                     m.bindTooltip(`<b>${col[1]}</b><br>${ds.toLocaleString()}đ`, { sticky: true });
+                    
                     dealers.push({ latlng: L.latLng(lat, lng), ds, ten: col[1], lat, lng });
+                    dealerMarkersMap[col[1].toLowerCase().trim()] = m; // Lưu tham chiếu phục vụ tìm kiếm
+
                     if (ds > 0) hp.push([lat, lng, Math.min(ds / 1000000000, 1)]);
                 }
             });
@@ -295,9 +324,80 @@
     function changeRadius(id, val) { const wh = warehouses.find(w => w.id === id); if (wh && val >= 0) { wh.radius = parseFloat(val) * 1000; wh.circle.setRadius(wh.radius); updateStats(); saveUserWarehouses(); } }
     function removeWarehouse(id) { if(confirm("Xóa?")) { const wh = warehouses.find(w => w.id === id); map.removeLayer(wh.marker); map.removeLayer(wh.circle); warehouses = warehouses.filter(w => w.id !== id); updateStats(); saveUserWarehouses(); } }
     function saveUserWarehouses() { localStorage.setItem('savedWarehousesLog', JSON.stringify(warehouses.filter(w => !w.isCompany).map(w => ({ lat: w.latlng.lat, lng: w.latlng.lng, radius: w.radius/1000, name: w.name })))); }
-    async function searchArea() { const input = document.getElementById('areaSearchInput').value; if (!input) return; const resp = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(input + ", Vietnam")}&format=json&polygon_geojson=1&limit=1`); const data = await resp.json(); if (data.length > 0) { highlightLayer.clearLayers(); L.geoJSON(data[0].geojson, { style: { color: '#ff1744', weight: 3, fillOpacity: 0 }, interactive: false }).addTo(highlightLayer); map.fitBounds(L.geoJSON(data[0].geojson).getBounds(), { padding: [30,30] }); } }
-    function toggleSidebar() { const sb = document.getElementById('sidebar'), btn = document.getElementById('floating-toggle'); sb.classList.toggle('hidden'); btn.innerText = sb.classList.contains('hidden') ? "☰" : "✖"; }
-    function addWarehouseByCoords() { const input = document.getElementById('coordInput').value; const parts = input.split(/[, ]+/); if (parts.length < 2) return alert("Lat, Lng"); const lat = parseFloat(parts[0]), lng = parseFloat(parts[1]); const name = prompt("Tên kho:", "Kho tọa độ " + (warehouses.filter(w=>!w.isCompany).length + 1)); if (name) { addWarehouse(L.latLng(lat, lng), 5, name, false); map.setView([lat, lng], 12); } }
+    
+    // --- CHỨC NĂNG MỚI: SOI NHIỀU KHU VỰC CÙNG LÚC + MÀU KHÁC NHAU ---
+    async function searchArea() {
+        const input = document.getElementById('areaSearchInput').value;
+        if (!input) return;
+        const resp = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(input + ", Vietnam")}&format=json&polygon_geojson=1&limit=1`);
+        const data = await resp.json();
+        if (data.length > 0) {
+            // Lấy màu tiếp theo trong danh sách bảng màu
+            const currentColor = BORDER_COLORS[colorIndex % BORDER_COLORS.length];
+            colorIndex++;
+
+            const newBoundary = L.geoJSON(data[0].geojson, { 
+                style: { color: currentColor, weight: 3.5, fillOpacity: 0.05, fillColor: currentColor }, 
+                interactive: false 
+            }).addTo(highlightLayer);
+
+            // Gom tất cả các vùng đang hiển thị để zoom bao quát toàn bộ
+            const allBounds = L.featureGroup(highlightLayer.getLayers()).getBounds();
+            map.fitBounds(allBounds, { padding: [40, 40] });
+            document.getElementById('areaSearchInput').value = ''; // Xóa chữ để gõ vùng tiếp theo
+        } else {
+            alert("Không tìm thấy khu vực: " + input);
+        }
+    }
+
+    function clearAreaBorders() {
+        highlightLayer.clearLayers();
+        colorIndex = 0; // Reset chỉ số màu
+    }
+
+    // --- CHỨC NĂNG MỚI: TÌM KIẾM ĐẠI LÝ & ĐỊNH VỊ NHANH ---
+    function onDealerSearchInput(value) {
+        const container = document.getElementById('dealerSuggestions');
+        if (!value.trim()) { container.style.display = 'none'; return; }
+        
+        const keyword = value.toLowerCase().trim();
+        // Lọc ra tối đa 10 đại lý khớp tên sát nhất
+        const matched = dealers.filter(d => d.ten.toLowerCase().includes(keyword)).slice(0, 10);
+        
+        if (matched.length > 0) {
+            container.innerHTML = matched.map(d => `
+                <div class="suggestion-item" onclick="focusDealer('${d.ten.replace(/'/g, "\\'")}', ${d.lat}, ${d.lng})">
+                    <b>${d.ten}</b> - <span style="color:var(--primary)">${d.ds.toLocaleString()}đ</span>
+                </div>
+            `).join('');
+            container.style.display = 'block';
+        } else {
+            container.innerHTML = '<div class="suggestion-item" style="color:#999; text-align:center;">Không tìm thấy đại lý</div>';
+            container.style.display = 'block';
+        }
+    }
+
+    function focusDealer(name, lat, lng) {
+        document.getElementById('dealerSearchInput').value = name;
+        document.getElementById('dealerSuggestions').style.display = 'none';
+        
+        // Di chuyển bản đồ tập trung vào đại lý
+        map.setView([lat, lng], 14);
+        
+        // Tìm marker tương ứng để mở Tooltip ngay lập tức
+        const marker = dealerMarkersMap[name.toLowerCase().trim()];
+        if (marker) {
+            marker.openTooltip();
+        }
+    }
+
+    // Đóng danh sách gợi ý khi click ra ngoài bản đồ
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.search-container')) {
+            document.getElementById('dealerSuggestions').style.display = 'none';
+        }
+    });
+
     function resetUserWarehouses() { if (confirm("Xóa sạch?")) { warehouses.forEach(w => { if (!w.isCompany) { map.removeLayer(w.marker); map.removeLayer(w.circle); } }); warehouses = warehouses.filter(w => w.isCompany); localStorage.removeItem('savedWarehousesLog'); updateStats(); } }
 </script>
 </body>
