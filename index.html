@@ -94,16 +94,16 @@
         <div class="card">
             <div style="font-weight:800; color:var(--primary); font-size:11px; margin-bottom:8px;">🔍 TÌM KIẾM CHIẾN LƯỢC</div>
             
-            <!-- Tìm kiếm địa phương -->
+            <!-- Tìm kiếm địa phương độc lập -->
             <div style="margin-bottom: 12px;">
                 <input type="text" id="areaSearchInput" placeholder="Soi viền vùng. Vd: Hà Nội, Hải Dương" onkeypress="if(event.key==='Enter') searchArea()">
-                <div style="display:flex; gap:5px; margin-top:5px;">
-                    <button onclick="searchArea()" style="flex:2; padding:10px; background:var(--dark); color:white; border:none; border-radius:8px; font-weight:bold; font-size:11px; cursor:pointer;">SOI VIỀN KHU VỰC</button>
-                    <button onclick="clearAreaBorders()" style="flex:1; padding:10px; background:#ffeaa7; color:#2d3436; border:none; border-radius:8px; font-weight:bold; font-size:11px; cursor:pointer;">XÓA VIỀN</button>
-                </div>
+                <button onclick="searchArea()" style="width:100%; padding:10px; background:var(--dark); color:white; border:none; border-radius:8px; font-weight:bold; font-size:11px; cursor:pointer; margin-top:5px;">SOI VIỀN KHU VỰC</button>
+                
+                <!-- DANH SÁCH KHU VỰC ĐANG SOI -->
+                <div id="areaZoneList" style="margin-top: 8px; max-height: 120px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px;"></div>
             </div>
 
-            <!-- Tìm kiếm Đại lý -->
+            <!-- Tìm kiếm Đại lý định vị nhanh -->
             <div class="search-container">
                 <input type="text" id="dealerSearchInput" placeholder="Tìm tên đại lý để định vị gấp..." oninput="onDealerSearchInput(this.value)">
                 <div id="dealerSuggestions" class="search-suggestions"></div>
@@ -181,9 +181,10 @@
         { name: 'Kho Hưng Yên', lat: 20.76934, lng: 106.051002 }
     ];
 
-    // Bảng màu phục vụ việc đổi màu viền vùng liên tục
+    // Bảng màu phục vụ việc phân tách màu viền vùng độc lập
     const BORDER_COLORS = ['#ff1744', '#0984e3', '#00b894', '#6c5ce7', '#e84393', '#d63031', '#2de300', '#f39c12'];
     let colorIndex = 0;
+    let activeZones = []; // Mảng quản lý danh sách các vùng đang soi viền
 
     const map = L.map('map', { zoomSnap: 0.1, zoomControl: false }).setView([20.8, 106.0], 9);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png').addTo(map);
@@ -197,7 +198,7 @@
     let dealers = [], warehouses = [], highlightLayer = L.layerGroup().addTo(map), 
         heatLayerGroup = L.layerGroup().addTo(map), dealerLayer = L.layerGroup().addTo(map), heatLayer = null;
     
-    // Mảng lưu trữ tham chiếu Marker thực tế để kích hoạt nhanh khi tìm kiếm
+    // Mảng lưu trữ tham chiếu Marker thực tế để mở tooltip tức thì khi tìm kiếm
     let dealerMarkersMap = {};
 
     map.on('click', function(e) {
@@ -241,7 +242,7 @@
                     m.bindTooltip(`<b>${col[1]}</b><br>${ds.toLocaleString()}đ`, { sticky: true });
                     
                     dealers.push({ latlng: L.latLng(lat, lng), ds, ten: col[1], lat, lng });
-                    dealerMarkersMap[col[1].toLowerCase().trim()] = m; // Lưu tham chiếu phục vụ tìm kiếm
+                    dealerMarkersMap[col[1].toLowerCase().trim()] = m;
 
                     if (ds > 0) hp.push([lat, lng, Math.min(ds / 1000000000, 1)]);
                 }
@@ -325,43 +326,85 @@
     function removeWarehouse(id) { if(confirm("Xóa?")) { const wh = warehouses.find(w => w.id === id); map.removeLayer(wh.marker); map.removeLayer(wh.circle); warehouses = warehouses.filter(w => w.id !== id); updateStats(); saveUserWarehouses(); } }
     function saveUserWarehouses() { localStorage.setItem('savedWarehousesLog', JSON.stringify(warehouses.filter(w => !w.isCompany).map(w => ({ lat: w.latlng.lat, lng: w.latlng.lng, radius: w.radius/1000, name: w.name })))); }
     
-    // --- CHỨC NĂNG MỚI: SOI NHIỀU KHU VỰC CÙNG LÚC + MÀU KHÁC NHAU ---
+    // --- TÍNH NĂNG: SOI NHIỀU KHU VỰC CÙNG LÚC + MÀU KHÁC NHAU + DANH SÁCH XOÁ ĐỘC LẬP ---
     async function searchArea() {
-        const input = document.getElementById('areaSearchInput').value;
+        const input = document.getElementById('areaSearchInput').value.trim();
         if (!input) return;
+        
+        if (activeZones.some(z => z.name.toLowerCase() === input.toLowerCase())) {
+            alert("Khu vực này đang được hiển thị viền!");
+            return;
+        }
+
         const resp = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(input + ", Vietnam")}&format=json&polygon_geojson=1&limit=1`);
         const data = await resp.json();
+        
         if (data.length > 0) {
-            // Lấy màu tiếp theo trong danh sách bảng màu
             const currentColor = BORDER_COLORS[colorIndex % BORDER_COLORS.length];
             colorIndex++;
 
-            const newBoundary = L.geoJSON(data[0].geojson, { 
-                style: { color: currentColor, weight: 3.5, fillOpacity: 0.05, fillColor: currentColor }, 
+            const geoLayer = L.geoJSON(data[0].geojson, { 
+                style: { color: currentColor, weight: 3.5, fillOpacity: 0.04, fillColor: currentColor }, 
                 interactive: false 
             }).addTo(highlightLayer);
 
-            // Gom tất cả các vùng đang hiển thị để zoom bao quát toàn bộ
-            const allBounds = L.featureGroup(highlightLayer.getLayers()).getBounds();
-            map.fitBounds(allBounds, { padding: [40, 40] });
-            document.getElementById('areaSearchInput').value = ''; // Xóa chữ để gõ vùng tiếp theo
+            const zoneId = "zone-" + Date.now() + Math.random().toString(36).substr(2, 5);
+            const zoneName = data[0].display_name.split(',')[0];
+
+            activeZones.push({
+                id: zoneId,
+                name: zoneName,
+                color: currentColor,
+                layer: geoLayer
+            });
+
+            renderAreaZoneList();
+            autoFitAvailableZones();
+            
+            document.getElementById('areaSearchInput').value = '';
         } else {
             alert("Không tìm thấy khu vực: " + input);
         }
     }
 
-    function clearAreaBorders() {
-        highlightLayer.clearLayers();
-        colorIndex = 0; // Reset chỉ số màu
+    function renderAreaZoneList() {
+        const container = document.getElementById('areaZoneList');
+        if (activeZones.length === 0) { container.innerHTML = ''; return; }
+
+        container.innerHTML = activeZones.map(zone => `
+            <div style="display:flex; justify-content:space-between; align-items:center; background:#f1f2f6; padding:6px 10px; border-radius:6px; border-left:4px solid ${zone.color}; font-size:11px;">
+                <span style="font-weight:bold; color:var(--dark); max-width:250px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${zone.name}</span>
+                <button onclick="removeSingleZone('${zone.id}')" style="border:none; color:#ff1744; font-weight:bold; background:none; cursor:pointer; padding:2px 5px;">[X]</button>
+            </div>
+        `).join('');
     }
 
-    // --- CHỨC NĂNG MỚI: TÌM KIẾM ĐẠI LÝ & ĐỊNH VỊ NHANH ---
+    function removeSingleZone(id) {
+        const targetZone = activeZones.find(z => z.id === id);
+        if (targetZone) {
+            highlightLayer.removeLayer(targetZone.layer);
+            activeZones = activeZones.filter(z => z.id !== id);
+            renderAreaZoneList();
+            autoFitAvailableZones();
+        }
+    }
+
+    function autoFitAvailableZones() {
+        if (activeZones.length > 0) {
+            const boundsArray = activeZones.map(z => z.layer.getBounds());
+            const groupBounds = L.latLngBounds(boundsArray);
+            map.fitBounds(groupBounds, { padding: [40, 40] });
+        } else {
+            map.setView([20.8, 106.0], 9); // Vị trí mặc định khi trống danh sách
+        }
+    }
+
+    // --- TÍNH NĂNG: TÌM KIẾM ĐẠI LÝ & ĐỊNH VỊ NHANH ---
     function onDealerSearchInput(value) {
         const container = document.getElementById('dealerSuggestions');
         if (!value.trim()) { container.style.display = 'none'; return; }
         
         const keyword = value.toLowerCase().trim();
-        // Lọc ra tối đa 10 đại lý khớp tên sát nhất
         const matched = dealers.filter(d => d.ten.toLowerCase().includes(keyword)).slice(0, 10);
         
         if (matched.length > 0) {
@@ -381,23 +424,22 @@
         document.getElementById('dealerSearchInput').value = name;
         document.getElementById('dealerSuggestions').style.display = 'none';
         
-        // Di chuyển bản đồ tập trung vào đại lý
         map.setView([lat, lng], 14);
         
-        // Tìm marker tương ứng để mở Tooltip ngay lập tức
         const marker = dealerMarkersMap[name.toLowerCase().trim()];
         if (marker) {
             marker.openTooltip();
         }
     }
 
-    // Đóng danh sách gợi ý khi click ra ngoài bản đồ
     document.addEventListener('click', function(e) {
         if (!e.target.closest('.search-container')) {
             document.getElementById('dealerSuggestions').style.display = 'none';
         }
     });
 
+    function toggleSidebar() { const sb = document.getElementById('sidebar'), btn = document.getElementById('floating-toggle'); sb.classList.toggle('hidden'); btn.innerText = sb.classList.contains('hidden') ? "☰" : "✖"; }
+    function addWarehouseByCoords() { const input = document.getElementById('coordInput').value; const parts = input.split(/[, ]+/); if (parts.length < 2) return alert("Lat, Lng"); const lat = parseFloat(parts[0]), lng = parseFloat(parts[1]); const name = prompt("Tên kho:", "Kho tọa độ " + (warehouses.filter(w=>!w.isCompany).length + 1)); if (name) { addWarehouse(L.latLng(lat, lng), 5, name, false); map.setView([lat, lng], 12); } }
     function resetUserWarehouses() { if (confirm("Xóa sạch?")) { warehouses.forEach(w => { if (!w.isCompany) { map.removeLayer(w.marker); map.removeLayer(w.circle); } }); warehouses = warehouses.filter(w => w.isCompany); localStorage.removeItem('savedWarehousesLog'); updateStats(); } }
 </script>
 </body>
