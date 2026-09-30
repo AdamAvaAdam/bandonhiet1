@@ -189,8 +189,16 @@
     let colorIndex = 0;
     let activeZones = []; 
 
-    const map = L.map('map', { zoomSnap: 0.1, zoomControl: false }).setView([20.8, 106.0], 9);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png').addTo(map);
+    const map = L.map('map', { 
+    zoomSnap: 0.1, 
+    zoomControl: false 
+}).setView([20.8, 106.0], 9);
+
+/* BẢN ĐỒ NỀN OPENSTREETMAP - KHÔNG CẦN API KEY */
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
 
     function checkLogin() { if (document.getElementById('username').value === 'admin' && document.getElementById('password').value === 'HA5566') { localStorage.setItem('isLogged', 'true'); enterApp(); } }
     function logout() { localStorage.removeItem('isLogged'); location.reload(); }
