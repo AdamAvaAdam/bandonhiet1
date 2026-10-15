@@ -249,7 +249,8 @@ button.small{padding:4px 8px;font-size:12px}
       </div>
       <div class="block">
         <div id="zsum"></div>
-        <div class="opts"><label><input type="checkbox" id="zFilter"> <span>Chỉ hiện đại lý trong vùng (ở danh sách khách hàng và bản đồ)</span></label></div>
+        <div class="opts"><label><input type="checkbox" id="zArea" checked> <span>Chỉ tính đại lý thuộc tỉnh/huyện đã chọn (khi có chọn khu vực ở tab Khách hàng hoặc Theo tỉnh)</span></label>
+          <label><input type="checkbox" id="zFilter"> <span>Chỉ hiện đại lý trong vùng (ở danh sách khách hàng và bản đồ)</span></label></div>
         <div class="exports" style="margin-top:0">
           <button class="small" id="zSelAll">Chọn tất cả đại lý trong vùng</button>
           <button class="small" id="zClear">Xoá hết vùng</button>
@@ -518,6 +519,7 @@ function buildAgents(rows) {
 /* ====== TRẠNG THÁI ====== */
 let agents = [], byId = new Map(), selected = new Set();
 let start = null, routeRes = null, provMode = false, pickingStart = false;
+const inAreasOf = (areas, a) => !areas.length || areas.some(r => r.pk === a.pk && (!r.dk || r.dk === a.dk));
 const filter = { q: '', ctx: '', areas: [] };   // areas: [{pk, dk}] — dk rỗng = cả tỉnh; nhiều khu vực được gộp (HOẶC)
 
 /* ====== BẢN ĐỒ ====== */
@@ -537,7 +539,7 @@ function popupHtml(a) {
 
 function matches(a) {
   if (zoneFilter && zones.length && !zoneU.has(a.id)) return false;
-  if (filter.areas.length && !filter.areas.some(r => r.pk === a.pk && (!r.dk || r.dk === a.dk))) return false;
+  if (!inAreasOf(filter.areas, a)) return false;
   if (filter.q && !a.hay.includes(norm(filter.q))) return false;
   return true;
 }
@@ -631,6 +633,7 @@ function renderChips() {
   if (t) t.textContent = filter.areas.length ? `${filter.areas.length} khu vực đã chọn · ${filtered().length} đại lý` : 'Bấm vào tỉnh (thẻ hoặc bong bóng trên bản đồ) để chọn, chọn được nhiều tỉnh.';
 }
 function areasChanged(fit) {
+  zoneRefresh();
   renderChips(); cProv.set(filter.ctx); refreshDist(); renderProvGrid();
   if (provMode) drawBubbles();
   applyFilter(fit);
@@ -1006,11 +1009,14 @@ $('#coordIn').onkeydown = e => { if (e.key === 'Enter') $('#btnCoord').click(); 
 
 /* ====== VÙNG BÁN KÍNH ====== */
 const ZCOL = ['#7c3aed', '#0891b2', '#c026d3', '#65a30d', '#db2777', '#ca8a04'];
-let zones = [], zoneSeq = 0, zoneFilter = false, pickingZone = false, zoneU = new Set(), zRaf = 0;
+let zones = [], zoneSeq = 0, zoneFilter = false, zoneAreaOnly = true, pickingZone = false, zoneU = new Set(), zRaf = 0;
 const zoneLayer = L.layerGroup().addTo(map);
 const zIcon = (z, i) => L.divIcon({ className: '', html: `<div class="zpin" style="background:${z.color}">${i + 1}</div>`, iconSize: [28, 28], iconAnchor: [14, 14] });
 const zoneUnion = () => { const u = new Set(); zones.forEach(z => z.ids.forEach(i => u.add(i))); return u; };
-function zoneCalc(z) { z.ids = new Set(); const R = z.r * 1000; for (const a of agents) if (haversine(z, a) <= R) z.ids.add(a.id); }
+function zoneCalc(z) {
+  z.ids = new Set(); const R = z.r * 1000;
+  for (const a of agents) { if (zoneAreaOnly && !inAreasOf(filter.areas, a)) continue; if (haversine(z, a) <= R) z.ids.add(a.id); }
+}
 function zoneBreak(z) {
   const m = new Map();
   z.ids.forEach(id => { const a = byId.get(id); m.set(a.prov, (m.get(a.prov) || 0) + 1); });
@@ -1029,7 +1035,7 @@ function fillZoneNums() {
     if (z.open) renderZoneList(z);
   });
   $('#zsum').textContent = zones.length
-    ? `Tổng ${zoneU.size} đại lý (không trùng) trong ${zones.length} vùng`
+    ? `Tổng ${zoneU.size} đại lý (không trùng) trong ${zones.length} vùng` + (zoneAreaOnly && filter.areas.length ? `, chỉ tính trong ${filter.areas.length} khu vực đã chọn` : '')
     : 'Chưa có vùng nào. Hãy cắm điểm trên bản đồ hoặc nhập toạ độ.';
   $('#bZone').textContent = zoneU.size;
 }
@@ -1167,6 +1173,7 @@ $('#zGps').onclick = () => {
   navigator.geolocation.getCurrentPosition(p => addZone(p.coords.latitude, p.coords.longitude),
     () => alert('Không lấy được vị trí. Hãy cho phép truy cập vị trí cho trang này.'), { enableHighAccuracy: true, timeout: 15000 });
 };
+$('#zArea').onchange = e => { zoneAreaOnly = e.target.checked; zoneRefresh(); };
 $('#zFilter').onchange = e => { zoneFilter = e.target.checked; renderList(); styleAll(); };
 $('#zSelAll').onclick = () => { zoneU.forEach(id => selected.add(id)); renderList(); styleAll(); fillZoneNums(); };
 $('#zClear').onclick = () => { zones.slice().forEach(z => { zoneLayer.removeLayer(z.circle); zoneLayer.removeLayer(z.marker); }); zones = []; zoneRefresh(); };
