@@ -114,6 +114,14 @@ button.small{padding:4px 8px;font-size:12px}
 .zcard .big{font-size:26px;font-weight:700;color:var(--teal);line-height:1}
 .zcard .zb{font-size:12px;color:var(--muted);margin:4px 0 8px}
 .zcard .zbtns{display:flex;gap:6px;flex-wrap:wrap}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;align-items:center}
+.chip{display:inline-flex;align-items:center;gap:6px;background:var(--teal-soft);color:var(--teal);border-radius:14px;padding:3px 4px 3px 10px;font-size:12px;font-weight:500}
+.chip b{font-weight:700}
+.chip button{border:0;background:transparent;padding:0 6px;color:var(--teal);font-size:15px;line-height:1}
+.chip button:hover{color:var(--route)}
+.pcard.on{border-color:var(--teal);background:var(--teal-soft);box-shadow:inset 0 0 0 1px var(--teal)}
+.pcard.part{border-color:var(--teal);border-style:dashed}
+.bubble.on{outline:3px solid #f59e0b;outline-offset:2px}
 #zsum{font-weight:600;margin-bottom:6px}
 .zlist{margin-top:10px;border-top:1px dashed var(--line);padding-top:8px}
 .zlh{display:flex;gap:6px;flex-wrap:wrap}
@@ -192,6 +200,7 @@ button.small{padding:4px 8px;font-size:12px}
           <input type="search" id="q" placeholder="Tìm theo tên, địa chỉ, SĐT…">
           <div class="combo" id="cProv"><input type="text" placeholder="Tỉnh (cũ) — gõ để tìm…" autocomplete="off"><button class="clr" type="button" aria-label="Bỏ chọn tỉnh">×</button><div class="dd"></div></div>
           <div class="combo" id="cDist"><input type="text" placeholder="Huyện (cũ) — chọn tỉnh trước" autocomplete="off" disabled><button class="clr" type="button" aria-label="Bỏ chọn huyện">×</button><div class="dd"></div></div>
+          <div id="chips" class="chips"></div>
         </div>
       </div>
       <div class="listhead">
@@ -210,6 +219,11 @@ button.small{padding:4px 8px;font-size:12px}
       <div class="block" style="border-bottom:0;padding-bottom:0">
         <div class="note" style="margin-top:0">Bản đồ đang hiện số đại lý theo từng tỉnh. Bấm vào tỉnh để phóng to và lọc danh sách.</div>
         <input type="search" id="provQ" placeholder="Tìm tỉnh…" style="margin-top:8px">
+        <div class="exports" style="margin-top:8px;align-items:center">
+          <button class="small primary" id="provGo">Xem danh sách</button>
+          <button class="small" id="provClear">Bỏ chọn khu vực</button>
+        </div>
+        <div class="note" id="provSelTxt"></div>
       </div>
       <div class="scroll"><div class="provgrid" id="provgrid"></div></div>
     </section>
@@ -272,7 +286,7 @@ button.small{padding:4px 8px;font-size:12px}
 /* ====== CẤU HÌNH ====== */
 const DEFAULT_SHEET = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSqx48yei68qBJFSiHZzxCeGO0df4IDE6md9hzu7TUv5GjgOvU9yIpm4lEN6HJw9zJuek4YYMj8XAyn/pubhtml?gid=965897694&single=true';
 const OSRM = 'https://router.project-osrm.org';
-const LIST_LIMIT = 400;
+const LIST_LIMIT = 1000;
 
 /* ====== TIỆN ÍCH ====== */
 const $ = s => document.querySelector(s);
@@ -504,7 +518,7 @@ function buildAgents(rows) {
 /* ====== TRẠNG THÁI ====== */
 let agents = [], byId = new Map(), selected = new Set();
 let start = null, routeRes = null, provMode = false, pickingStart = false;
-const filter = { q: '', prov: '', dist: '' };
+const filter = { q: '', ctx: '', areas: [] };   // areas: [{pk, dk}] — dk rỗng = cả tỉnh; nhiều khu vực được gộp (HOẶC)
 
 /* ====== BẢN ĐỒ ====== */
 const map = L.map('map', { zoomControl: true, preferCanvas: true }).setView([16.2, 106.2], 6);
@@ -523,12 +537,11 @@ function popupHtml(a) {
 
 function matches(a) {
   if (zoneFilter && zones.length && !zoneU.has(a.id)) return false;
-  if (filter.prov && a.pk !== filter.prov) return false;
-  if (filter.dist && a.dk !== filter.dist) return false;
+  if (filter.areas.length && !filter.areas.some(r => r.pk === a.pk && (!r.dk || r.dk === a.dk))) return false;
   if (filter.q && !a.hay.includes(norm(filter.q))) return false;
   return true;
 }
-const filtering = () => !!(filter.prov || filter.dist || filter.q || (zoneFilter && zones.length));
+const filtering = () => !!(filter.areas.length || filter.q || (zoneFilter && zones.length));
 
 function styleMarker(a) {
   const m = markers.get(a.id); if (!m) return;
@@ -576,9 +589,9 @@ function drawBubbles() {
     const size = Math.round(Math.min(76, 36 + Math.sqrt(p.list.length) * 5));
     const icon = L.divIcon({
       className: '', iconSize: [size, size],
-      html: `<div class="bubble ${p.sel ? 'has' : ''}" style="width:${size}px;height:${size}px"><span>${p.sel ? p.sel + '/' : ''}${p.list.length}<small>${esc(p.name)}</small></span></div>`
+      html: `<div class="bubble ${p.sel ? 'has' : ''} ${areaState(p.key) === 'on' ? 'on' : ''}" style="width:${size}px;height:${size}px"><span>${p.sel ? p.sel + '/' : ''}${p.list.length}<small>${esc(p.name)}</small></span></div>`
     });
-    L.marker([lat, lng], { icon }).on('click', () => App.openProv(p.key)).addTo(bubbleLayer);
+    L.marker([lat, lng], { icon }).on('click', () => App.toggleProv(p.key)).addTo(bubbleLayer);
   });
 }
 function renderProvGrid() {
@@ -586,7 +599,7 @@ function renderProvGrid() {
   const pq = tok($('#provQ').value);
   const ps = provStats().filter(p => !pq || tok(p.name).includes(pq));
   el.innerHTML = ps.map(p => `
-    <div class="pcard" data-k="${esc(p.key)}">
+    <div class="pcard ${areaState(p.key)}" data-k="${esc(p.key)}">
       <b>${esc(p.name)}</b>
       <span class="n">${p.list.length}</span>
       <small>${p.sel ? p.sel + ' đã chọn' : 'đại lý'}</small>
@@ -600,28 +613,61 @@ function setProvMode(on) {
   else { map.removeLayer(bubbleLayer); agentLayer.addTo(map); }
 }
 
+/* ====== KHU VỰC (chọn nhiều tỉnh / huyện cũ, gộp lại) ====== */
+const provName = pk => OLD_PROVS.find(n => norm(n) === pk) || (pk === UNK_K ? UNK : pk);
+const areaHas = (pk, dk) => filter.areas.some(r => r.pk === pk && r.dk === (dk || ''));
+const areaState = pk => areaHas(pk, '') ? 'on' : (filter.areas.some(r => r.pk === pk) ? 'part' : '');
+function areaLabel(r) {
+  if (!r.dk) return provName(r.pk);
+  const a = agents.find(x => x.pk === r.pk && x.dk === r.dk);
+  return provName(r.pk) + ' › ' + (a ? a.dist : r.dk);
+}
+const areaCount = r => agents.filter(a => a.pk === r.pk && (!r.dk || a.dk === r.dk)).length;
+function renderChips() {
+  $('#chips').innerHTML = filter.areas.length
+    ? filter.areas.map((r, i) => `<span class="chip">${esc(areaLabel(r))} <b>${areaCount(r)}</b><button data-i="${i}" aria-label="Bỏ khu vực này">×</button></span>`).join('') + '<button class="small clrall">Xoá hết</button>'
+    : '<span class="note" style="margin:0">Chưa chọn khu vực: đang hiện tất cả đại lý. Chọn tỉnh/huyện để lọc, chọn được nhiều khu vực cùng lúc.</span>';
+  const t = $('#provSelTxt');
+  if (t) t.textContent = filter.areas.length ? `${filter.areas.length} khu vực đã chọn · ${filtered().length} đại lý` : 'Bấm vào tỉnh (thẻ hoặc bong bóng trên bản đồ) để chọn, chọn được nhiều tỉnh.';
+}
+function areasChanged(fit) {
+  renderChips(); cProv.set(filter.ctx); refreshDist(); renderProvGrid();
+  if (provMode) drawBubbles();
+  applyFilter(fit);
+}
+function addArea(pk, dk) {
+  dk = dk || '';
+  if (dk) { filter.areas = filter.areas.filter(r => !(r.pk === pk && !r.dk)); if (!areaHas(pk, dk)) filter.areas.push({ pk, dk }); }
+  else { filter.areas = filter.areas.filter(r => r.pk !== pk); filter.areas.push({ pk, dk: '' }); }
+  filter.ctx = pk;
+  areasChanged(true);
+}
+
 /* ====== DANH SÁCH ====== */
 function provOpts() {
   const cnt = new Map(); agents.forEach(a => cnt.set(a.pk, (cnt.get(a.pk) || 0) + 1));
-  const o = OLD_PROVS.map(n => ({ v: norm(n), label: n, k: tok(n), count: cnt.get(norm(n)) || 0 }))
-    .sort((a, b) => a.label.localeCompare(b.label, 'vi'));
-  if (cnt.get(UNK_K)) o.push({ v: UNK_K, label: UNK, k: tok(UNK), count: cnt.get(UNK_K) });
+  const mark = pk => ({ on: '✓ ', part: '◐ ', '': '' })[areaState(pk)];
+  const o = OLD_PROVS.map(n => ({ v: norm(n), label: mark(norm(n)) + n, show: n, k: tok(n), count: cnt.get(norm(n)) || 0 }))
+    .sort((a, b) => a.show.localeCompare(b.show, 'vi'));
+  if (cnt.get(UNK_K)) o.push({ v: UNK_K, label: mark(UNK_K) + UNK, show: UNK, k: tok(UNK), count: cnt.get(UNK_K) });
   return o;
 }
 function distOpts() {
-  if (!filter.prov) return [];
+  if (!filter.ctx) return [];
   const m = new Map();
   agents.forEach(a => {
-    if (!a.dist || a.pk !== filter.prov) return;
-    const e = m.get(a.dk) || { v: a.dk, label: a.dist, k: tok(a.dist), count: 0 };
+    if (!a.dist || a.pk !== filter.ctx) return;
+    const e = m.get(a.dk) || { v: a.dk, label: a.dist, show: a.dist, k: tok(a.dist), count: 0 };
     e.count++; m.set(a.dk, e);
   });
-  return [...m.values()].sort((a, b) => a.label.localeCompare(b.label, 'vi', { numeric: true }));
+  const o = [...m.values()].sort((a, b) => a.show.localeCompare(b.show, 'vi', { numeric: true }));
+  o.forEach(e => { if (areaHas(filter.ctx, e.v)) e.label = '✓ ' + e.label; });
+  return o;
 }
 function makeCombo(root, { allLabel, getOpts, onPick }) {
   const inp = root.querySelector('input'), dd = root.querySelector('.dd'), clr = root.querySelector('.clr');
   let value = '', hi = 0, items = [], typing = false;
-  const labelOf = v => v ? (getOpts().find(o => o.v === v)?.label || '') : '';
+  const labelOf = v => { if (!v) return ''; const o = getOpts().find(o => o.v === v); return o ? (o.show ?? o.label) : ''; };
   const sync = () => { inp.value = labelOf(value); clr.style.display = value ? 'block' : 'none'; };
   function draw() {
     const q = typing ? tok(inp.value) : '';
@@ -651,12 +697,11 @@ function makeCombo(root, { allLabel, getOpts, onPick }) {
 }
 function refreshDist() {
   const o = distOpts(), inp = $('#cDist input');
-  inp.disabled = !o.length;
-  inp.placeholder = !filter.prov ? 'Huyện (cũ) — chọn tỉnh trước' : (o.length ? 'Huyện (cũ) — gõ để tìm…' : 'Tỉnh này chưa có dữ liệu huyện');
-  if (filter.dist && !o.some(x => x.v === filter.dist)) filter.dist = '';
-  cDist.set(filter.dist);
+  inp.disabled = !filter.ctx || !o.length;
+  inp.placeholder = !filter.ctx ? 'Huyện (cũ) — chọn tỉnh trước' : (o.length ? 'Thêm huyện (cũ) — gõ để tìm…' : 'Tỉnh này chưa có dữ liệu huyện');
+  cDist.set('');
 }
-function syncCombos() { cProv.set(filter.prov); refreshDist(); }
+function syncCombos() { cProv.set(filter.ctx); refreshDist(); renderChips(); }
 function filtered() { return agents.filter(matches); }
 
 function renderList() {
@@ -884,9 +929,11 @@ const App = {
   setStartAgent(id) {
     const a = byId.get(id); setStart({ lat: a.lat, lng: a.lng, label: a.name, agentId: id }, false); map.closePopup();
   },
-  openProv(key) {
-    filter.prov = key; filter.dist = ''; filter.q = ''; $('#q').value = '';
-    syncCombos(); showTab('cust'); applyFilter(true);
+  toggleProv(pk) {
+    const i = filter.areas.findIndex(r => r.pk === pk && !r.dk);
+    if (i >= 0) { filter.areas.splice(i, 1); if (filter.ctx === pk) filter.ctx = ''; }
+    else { filter.areas = filter.areas.filter(r => r.pk !== pk); filter.areas.push({ pk, dk: '' }); filter.ctx = pk; }
+    areasChanged(false);
   }
 };
 
@@ -900,8 +947,19 @@ document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => showTab
 $('#btnProvMode').onclick = () => showTab(provMode ? 'cust' : 'prov');
 $('#btnFit').onclick = () => { if (provMode) showTab('cust'); fitAgents(agents); };
 $('#q').oninput = e => { filter.q = e.target.value; applyFilter(false); };
-const cProv = makeCombo($('#cProv'), { allLabel: 'Tất cả tỉnh', getOpts: provOpts, onPick: v => { filter.prov = v; filter.dist = ''; refreshDist(); applyFilter(true); } });
-const cDist = makeCombo($('#cDist'), { allLabel: 'Tất cả huyện', getOpts: distOpts, onPick: v => { filter.dist = v; applyFilter(true); } });
+const cProv = makeCombo($('#cProv'), { allLabel: 'Bỏ chọn tỉnh (chỉ đổi ô huyện)', getOpts: provOpts, onPick: v => { filter.ctx = v; if (v) addArea(v, ''); else refreshDist(); } });
+const cDist = makeCombo($('#cDist'), { allLabel: 'Cả tỉnh (tất cả huyện)', getOpts: distOpts, onPick: v => {
+  if (!filter.ctx) return;
+  if (v && areaHas(filter.ctx, v)) { filter.areas = filter.areas.filter(r => !(r.pk === filter.ctx && r.dk === v)); areasChanged(true); }
+  else addArea(filter.ctx, v);
+} });
+$('#chips').onclick = e => {
+  if (e.target.closest('.clrall')) { filter.areas = []; filter.ctx = ''; areasChanged(false); return; }
+  const b = e.target.closest('button[data-i]'); if (!b) return;
+  filter.areas.splice(+b.dataset.i, 1); areasChanged(filter.areas.length > 0);
+};
+$('#provGo').onclick = () => { showTab('cust'); fitAgents(filtered()); };
+$('#provClear').onclick = () => { filter.areas = []; filter.ctx = ''; areasChanged(false); };
 $('#provQ').oninput = () => renderProvGrid();
 $('#selAll').onclick = () => { filtered().forEach(a => selected.add(a.id)); renderList(); styleAll(); };
 $('#selNone').onclick = () => { selected.clear(); renderList(); styleAll(); };
@@ -920,7 +978,7 @@ $('#list').onclick = e => {
 $('#provgrid').onclick = e => {
   const all = e.target.closest('[data-all]');
   if (all) { agents.filter(a => a.pk === all.dataset.all).forEach(a => selected.add(a.id)); renderProvGrid(); drawBubbles(); styleAll(); updateCounts(); return; }
-  const c = e.target.closest('.pcard'); if (c) App.openProv(c.dataset.k);
+  const c = e.target.closest('.pcard'); if (c) App.toggleProv(c.dataset.k);
 };
 $('#routeOut').onclick = e => {
   const s = e.target.closest('.stop'); if (!s || !routeRes) return;
@@ -1150,7 +1208,7 @@ function setData(text, origin) {
   const res = buildAgents(parseCSV(text));
   agents = res.agents; byId = new Map(agents.map(a => [a.id, a]));
   selected.clear(); routeRes = null; routeLayer.clearLayers();
-  filter.q = filter.prov = filter.dist = ''; $('#q').value = '';
+  filter.q = ''; filter.ctx = ''; filter.areas = []; $('#q').value = '';
   const st = $('#status');
   if (!agents.length) {
     st.className = 'err';
