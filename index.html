@@ -1,1206 +1,568 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Lộ trình thị trường</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<style>
-:root{
-  --bg:#f3f1ec; --panel:#fbfaf7; --ink:#1d2b2a; --muted:#6b7775; --line:#dcd8cf;
-  --teal:#0f5d58; --teal-soft:#dcebe8; --route:#e4572e; --start:#1a8f4a; --dot:#2f6fb5; --sel:#e4572e;
-  --radius:8px;
-}
-*{box-sizing:border-box}
-html,body{height:100%;margin:0}
-body{font-family:'Be Vietnam Pro',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--ink);background:var(--bg);font-size:14px;line-height:1.45}
-#app{display:grid;grid-template-columns:410px 1fr;height:100%}
-#side{position:relative;z-index:2;display:flex;flex-direction:column;background:var(--panel);border-right:1px solid var(--line);min-height:0}
-#mapwrap{position:relative;min-height:0}
-#map{position:absolute;inset:0;background:#e7e5df}
-header{padding:14px 16px 10px;border-bottom:1px solid var(--line)}
-header h1{font-size:17px;margin:0 0 2px;font-weight:700;color:var(--teal)}
-#status{font-size:12px;color:var(--muted)}
-#status.err{color:#b3261e}
-details.src{margin-top:8px;font-size:12px}
-details.src summary{cursor:pointer;color:var(--teal);font-weight:500}
-details.src .box{margin-top:6px;display:grid;gap:6px}
-input[type=text],input[type=search],select{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:var(--radius);background:#fff;font:inherit;color:inherit}
-input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--teal);outline-offset:1px}
-button{font:inherit;cursor:pointer;border:1px solid var(--line);background:#fff;color:var(--ink);padding:7px 11px;border-radius:var(--radius)}
-button:hover{background:#f0eee8}
-button.primary{background:var(--teal);border-color:var(--teal);color:#fff;font-weight:600}
-button.primary:hover{background:#0b4a46}
-button.primary:disabled{opacity:.6;cursor:wait}
-button.small{padding:4px 8px;font-size:12px}
-.tabs{display:flex;border-bottom:1px solid var(--line)}
-.tabs button{flex:1;border:0;border-radius:0;background:transparent;padding:10px 4px;font-weight:500;color:var(--muted);border-bottom:2px solid transparent}
-.tabs button.on{color:var(--teal);border-bottom-color:var(--teal);font-weight:600}
-.tabs .badge{display:inline-block;min-width:20px;padding:0 6px;border-radius:10px;background:var(--teal-soft);color:var(--teal);font-size:11px;margin-left:4px}
-.pane{display:none;flex:1;min-height:0;flex-direction:column}
-.pane.on{display:flex}
-.scroll{overflow:auto;flex:1;min-height:0}
-.block{padding:12px 16px;border-bottom:1px solid var(--line)}
-.block h3{margin:0 0 8px;font-size:13px;font-weight:600}
-.row2{display:flex;gap:6px}
-.row2>*{flex:1}
-.startcard{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px dashed var(--start);border-radius:var(--radius);background:#eaf5ee;margin-bottom:8px}
-.startcard.empty{border-color:var(--line);background:#fff;color:var(--muted)}
-.startcard b{flex:1;font-weight:600}
-.filters{display:grid;gap:6px}
-.filters .row2 select{min-width:0}
-.listhead{display:flex;align-items:center;gap:6px;padding:8px 16px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--line);flex-wrap:wrap}
-.listhead .sp{flex:1}
-.item{display:flex;align-items:flex-start;gap:9px;padding:9px 16px;border-bottom:1px solid #ece9e1;cursor:pointer}
-.item:hover{background:#f4f2ec}
-.item.sel{background:#fdf0ea}
-.item input{margin-top:3px;accent-color:var(--sel)}
-.item .t{flex:1;min-width:0}
-.item .t b{display:block;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.item .t small{display:block;color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.item .act{display:flex;gap:2px}
-.item .act button{border:0;background:transparent;padding:3px 5px;font-size:15px}
-.more{padding:10px 16px;color:var(--muted);font-size:12px}
-.provgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px 16px}
-.pcard{border:1px solid var(--line);border-radius:var(--radius);background:#fff;padding:9px 10px;cursor:pointer;display:flex;flex-direction:column;gap:2px}
-.pcard:hover{border-color:var(--teal)}
-.pcard b{font-weight:600}
-.pcard .n{font-size:22px;font-weight:700;color:var(--teal);line-height:1.1}
-.pcard small{color:var(--muted);font-size:12px}
-.pcard .pa{margin-top:4px;display:flex;gap:4px}
-.opts{display:grid;gap:6px;margin:6px 0 10px}
-.opts label{display:flex;gap:8px;align-items:flex-start;font-size:13px}
-.opts input{margin-top:2px;accent-color:var(--teal)}
-.sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
-.sum div{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:8px}
-.sum b{display:block;font-size:18px;color:var(--route);line-height:1.2}
-.sum small{color:var(--muted);font-size:11px}
-.stop{display:flex;gap:10px;padding:8px 16px;border-bottom:1px solid #ece9e1;align-items:flex-start;cursor:pointer}
-.stop:hover{background:#f4f2ec}
-.stop .no{flex:none;width:24px;height:24px;border-radius:50%;background:var(--route);color:#fff;font-weight:700;font-size:12px;display:grid;place-items:center}
-.stop .no.s{background:var(--start)}
-.stop .t{flex:1;min-width:0}
-.stop .t b{display:block;font-weight:600}
-.stop .t small{color:var(--muted);font-size:12px}
-.stop .d{font-size:12px;color:var(--muted);white-space:nowrap;text-align:right}
-.exports{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
-.note{font-size:12px;color:var(--muted);margin-top:6px}
-.empty-msg{padding:24px 16px;color:var(--muted);text-align:center}
-.combo{position:relative}
-.combo input{padding-right:28px}
-.combo input:disabled{background:#f1efe9;color:var(--muted)}
-.combo .clr{position:absolute;right:2px;top:2px;bottom:2px;border:0;background:transparent;padding:0 8px;color:var(--muted);font-size:17px;display:none}
-.combo .dd{display:none;position:absolute;left:0;right:0;top:calc(100% + 3px);max-height:270px;overflow:auto;background:#fff;border:1px solid var(--line);border-radius:var(--radius);box-shadow:0 6px 18px rgba(0,0,0,.15);z-index:1000}
-.combo .opt{display:flex;justify-content:space-between;gap:8px;padding:7px 10px;cursor:pointer}
-.combo .opt.hi{background:var(--teal-soft)}
-.combo .opt.dim{color:#a3aaa8}
-.combo .opt small{color:var(--muted)}
-.combo .opt.none{color:var(--muted);cursor:default}
-.tabs button{white-space:nowrap;font-size:13px;padding:10px 2px}
-.zpin{color:#fff;font-weight:700;font-size:13px;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;border:3px solid #fff;box-shadow:0 1px 6px rgba(0,0,0,.5);cursor:grab}
-.zcard{margin:10px 16px;padding:10px 12px;border:1px solid var(--line);border-left-width:5px;border-radius:var(--radius);background:#fff}
-.zcard .zh{display:flex;align-items:center;gap:8px}
-.zcard .zh b{flex:1;font-weight:600}
-.zcard .zh small{color:var(--muted);font-size:12px}
-.zcard .zh button{border:0;background:transparent;padding:2px 6px;color:var(--muted);font-size:15px}
-.zcard .zr{display:flex;align-items:center;gap:8px;margin:8px 0}
-.zcard .zr input[type=range]{flex:1;accent-color:var(--teal)}
-.zcard .zr input[type=number]{width:74px;flex:none;padding:5px 7px}
-.zcard .zn{display:flex;align-items:baseline;gap:6px}
-.zcard .big{font-size:26px;font-weight:700;color:var(--teal);line-height:1}
-.zcard .zb{font-size:12px;color:var(--muted);margin:4px 0 8px}
-.zcard .zbtns{display:flex;gap:6px;flex-wrap:wrap}
-#zsum{font-weight:600;margin-bottom:6px}
-.zlist{margin-top:10px;border-top:1px dashed var(--line);padding-top:8px}
-.zlh{display:flex;gap:6px;flex-wrap:wrap}
-.zrow{display:flex;align-items:flex-start;gap:8px;padding:7px 2px;border-bottom:1px solid #ece9e1;cursor:pointer}
-.zrow:hover{background:#f4f2ec}
-.zrow input{margin-top:3px;accent-color:var(--sel)}
-.zrow .t{flex:1;min-width:0}
-.zrow .t b{display:block;font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.zrow .t small{display:block;color:var(--muted);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.zrow .d{text-align:right;white-space:nowrap}
-.zrow .d b{display:block;font-weight:600;color:var(--teal);font-size:13px}
-.zrow .d small{color:var(--muted);font-size:11px}
-/* map overlay */
-.mapbtn{position:absolute;z-index:500;top:12px;right:12px;display:flex;gap:6px}
-.mapbtn button{box-shadow:0 1px 4px rgba(0,0,0,.2)}
-.mapbtn button.on{background:var(--teal);color:#fff;border-color:var(--teal)}
-#hint{position:absolute;z-index:500;left:50%;top:12px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:7px 14px;border-radius:20px;display:none}
-.num{background:var(--route);color:#fff;font-weight:700;font-size:12px;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)}
-.flag{background:var(--start);color:#fff;font-size:14px;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)}
-.bubble{background:var(--teal);color:#fff;font-weight:700;border-radius:50%;display:grid;place-items:center;border:2px solid #fff;box-shadow:0 1px 6px rgba(0,0,0,.35);text-align:center;line-height:1.05}
-.bubble small{display:block;font-weight:500;font-size:10px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.bubble.has{background:var(--route)}
-.pbtn{margin:6px 4px 0 0;padding:4px 8px;font-size:12px}
-@media (max-width:820px){
-  #app{grid-template-columns:1fr;grid-template-rows:42vh 1fr}
-  #mapwrap{order:-1}
-  #side{border-right:0;border-top:1px solid var(--line)}
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Điều phối V13.8 - Đối chiếu Trực diện</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root { --primary: #ff1744; --dark: #2d3436; --bg: #f8f9fa; --teal: #00b894; --warning: #f1c40f; --blue: #0984e3; }
+        body, html { margin: 0; padding: 0; height: 100%; width: 100%; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
+        
+        #login-overlay { position: fixed; inset: 0; background: var(--dark); display: flex; align-items: center; justify-content: center; z-index: 10000; }
+        .login-box { background: #fff; padding: 30px; border-radius: 20px; width: 85%; max-width: 350px; text-align: center; border-bottom: 5px solid var(--primary); }
+        .login-box input { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 10px; border: 1px solid #ddd; font-size: 16px; box-sizing: border-box; }
+        .login-box button { width: 100%; padding: 14px; background: var(--primary); color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; }
+
+        #main-app { display: none; height: 100vh; width: 100vw; flex-direction: column; position: relative; }
+        #map { position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 1; background: #f4f1ea; }
+        
+        #sidebar { 
+            position: absolute; bottom: 0; left: 0; width: 100%; max-height: 75%; 
+            background: rgba(255, 255, 255, 0.98); z-index: 1000; padding: 15px; box-sizing: border-box; 
+            border-top: 4px solid var(--primary); transition: transform 0.4s;
+            overflow-y: auto; box-shadow: 0 -5px 25px rgba(0,0,0,0.2);
+        }
+        #sidebar.hidden { transform: translateY(105%); }
+
+        #floating-toggle {
+            position: fixed; bottom: 20px; right: 20px; z-index: 2000;
+            background: var(--dark); color: white; border: 2px solid var(--primary); width: 55px; height: 55px;
+            border-radius: 50%; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 20px;
+        }
+
+        @media (min-width: 768px) {
+            #sidebar { top: 0; left: 0; bottom: 0; width: 420px; max-height: 100%; border-top: none; border-right: 4px solid var(--primary); transform: none !important; }
+            #sidebar.hidden { transform: translateX(-105%) !important; }
+            #floating-toggle { bottom: 25px; left: 385px; right: auto; }
+            #sidebar.hidden ~ #floating-toggle { left: 20px; }
+        }
+
+        .section-header { display: flex; justify-content: space-between; align-items: center; background: #e9ecef; padding: 10px; border-radius: 8px; cursor: pointer; margin: 15px 0 8px; }
+        .section-title { font-size: 11px; font-weight: 900; color: #495057; text-transform: uppercase; }
+        .group-content { display: none; }
+
+        .card { background: #fffaf0; border-radius: 12px; padding: 12px; margin-bottom: 12px; border: 1px solid #f3e5ab; }
+        .stats-box { background: #ffffff; padding: 10px; border-radius: 10px; margin-top: 8px; border-left: 5px solid var(--dark); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .radius-inline-input { width: 50px; padding: 2px 4px; border: 1px solid #ddd; border-radius: 4px; font-size: 11px; font-weight: bold; text-align: center; margin-left: 5px; color: var(--primary); }
+        
+        .dealer-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 11px; display: none; }
+        .dealer-table th { text-align: left; border-bottom: 1px solid #eee; padding: 4px; }
+        .dealer-table td { padding: 6px 4px; border-top: 1px solid #f9f9f9; }
+
+        #compare-modal { 
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 95%; max-width: 1100px; max-height: 85vh; background: white;
+            z-index: 5000; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            display: none; flex-direction: column; padding: 20px; border-top: 10px solid var(--blue);
+        }
+        .compare-scroll-area { overflow-x: auto; margin-top: 15px; border: 1px solid #eee; border-radius: 10px; }
+        .compare-grid-table { border-collapse: collapse; min-width: 100%; table-layout: fixed; }
+        .compare-grid-table th { background: var(--blue); color: white; padding: 12px; text-align: center; font-size: 12px; width: 250px; min-width: 200px; border: 1px solid rgba(255,255,255,0.2); }
+        .compare-grid-table td { padding: 0; border: 1px solid #eee; vertical-align: top; background: #fdfdfd; }
+        
+        .cust-list-item { display: flex; justify-content: space-between; padding: 8px; border-bottom: 1px solid #f0f0f0; font-size: 11px; }
+        .cust-list-item:nth-child(even) { background: #fafafa; }
+        .cust-list-item b { color: var(--primary); }
+
+        .wh-label { display: inline-block; white-space: nowrap; padding: 3px 8px; border-radius: 4px; color: white; font-size: 11px; font-weight: bold; border: 1.5px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); transform: translate(-50%, -140%); pointer-events: none; }
+        
+        .search-container { position: relative; margin-bottom: 8px; }
+        .search-suggestions { position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #ddd; border-radius: 8px; max-height: 180px; overflow-y: auto; z-index: 2000; display: none; box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
+        .suggestion-item { padding: 8px 12px; font-size: 12px; cursor: pointer; border-bottom: 1px solid #f5f5f5; text-align: left; }
+        .suggestion-item:hover { background: #f0f2f5; }
+
+        /* Style bổ sung cho bảng con của danh sách vùng */
+        .zone-dealer-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 10px; background: #fff; border: 1px solid #e0e0e0; border-radius: 6px; overflow: hidden; display: none; }
+        .zone-dealer-table th { background: #f1f2f6; text-align: left; padding: 5px; border-bottom: 1px solid #ddd; }
+        .zone-dealer-table td { padding: 5px; border-bottom: 1px solid #f5f5f5; }
+    </style>
 </head>
 <body>
-<div id="app">
-  <aside id="side">
-    <header>
-      <h1>Lộ trình thị trường</h1>
-      <div id="status">Đang tải danh sách đại lý…</div>
-      <details class="src">
-        <summary>Nguồn dữ liệu</summary>
-        <div class="box">
-          <input type="text" id="sheetUrl" placeholder="Link Google Sheet (đã xuất bản lên web)">
-          <div class="row2">
-            <button id="reload" class="small">Tải lại từ link</button>
-            <button id="uploadBtn" class="small">Mở file CSV…</button>
-          </div>
-          <input type="file" id="file" accept=".csv,text/csv" hidden>
-          <div class="note" id="colinfo"></div>
-        </div>
-      </details>
-    </header>
 
-    <nav class="tabs">
-      <button data-tab="cust" class="on">Khách hàng <span class="badge" id="bSel">0</span></button>
-      <button data-tab="prov">Theo tỉnh</button>
-      <button data-tab="zone">Bán kính <span class="badge" id="bZone">0</span></button>
-      <button data-tab="route">Lộ trình</button>
-    </nav>
-
-    <!-- KHÁCH HÀNG -->
-    <section class="pane on" id="p-cust">
-      <div class="block">
-        <h3>1. Điểm xuất phát</h3>
-        <div id="startCard" class="startcard empty"><b>Chưa chọn</b></div>
-        <div class="row2">
-          <button id="btnGps" class="small">📍 Vị trí của tôi</button>
-          <button id="btnPick" class="small">🗺️ Chấm trên bản đồ</button>
-        </div>
-        <div class="row2" style="margin-top:6px">
-          <input type="text" id="coordIn" placeholder="hoặc nhập: 21.0285, 105.8542">
-          <button id="btnCoord" class="small" style="flex:none">Đặt</button>
-        </div>
-        <div class="note">Hoặc bấm 🚩 ở một đại lý trong danh sách bên dưới.</div>
-      </div>
-      <div class="block">
-        <h3>2. Chọn điểm cần đi</h3>
-        <div class="filters">
-          <input type="search" id="q" placeholder="Tìm theo tên, địa chỉ, SĐT…">
-          <div class="combo" id="cProv"><input type="text" placeholder="Tỉnh (cũ) — gõ để tìm…" autocomplete="off"><button class="clr" type="button" aria-label="Bỏ chọn tỉnh">×</button><div class="dd"></div></div>
-          <div class="combo" id="cDist"><input type="text" placeholder="Huyện (cũ) — chọn tỉnh trước" autocomplete="off" disabled><button class="clr" type="button" aria-label="Bỏ chọn huyện">×</button><div class="dd"></div></div>
-        </div>
-      </div>
-      <div class="listhead">
-        <span id="cnt"></span><span class="sp"></span>
-        <button class="small" id="selAll">Chọn tất cả đang lọc</button>
-        <button class="small" id="selNone">Bỏ chọn hết</button>
-      </div>
-      <div class="scroll" id="list"></div>
-      <div class="block" style="border-top:1px solid var(--line);border-bottom:0">
-        <button class="primary" id="btnGo" style="width:100%">Tính lộ trình ngắn nhất</button>
-      </div>
-    </section>
-
-    <!-- THEO TỈNH -->
-    <section class="pane" id="p-prov">
-      <div class="block" style="border-bottom:0;padding-bottom:0">
-        <div class="note" style="margin-top:0">Bản đồ đang hiện số đại lý theo từng tỉnh. Bấm vào tỉnh để phóng to và lọc danh sách.</div>
-        <input type="search" id="provQ" placeholder="Tìm tỉnh…" style="margin-top:8px">
-      </div>
-      <div class="scroll"><div class="provgrid" id="provgrid"></div></div>
-    </section>
-
-    <!-- BÁN KÍNH -->
-    <section class="pane" id="p-zone">
-      <div class="block">
-        <h3>Cắm điểm để đếm đại lý theo bán kính</h3>
-        <div class="row2">
-          <button id="zPick" class="small">📌 Cắm trên bản đồ</button>
-          <button id="zGps" class="small">📍 Vị trí của tôi</button>
-        </div>
-        <div class="row2" style="margin-top:6px">
-          <input type="text" id="zCoord" placeholder="Toạ độ: 21.0285, 105.8542">
-          <button id="zAdd" class="small" style="flex:none">Cắm</button>
-        </div>
-        <div class="row2" style="margin-top:6px;align-items:center">
-          <span style="flex:none">Bán kính mới</span>
-          <input type="number" id="zR" value="10" min="0.1" step="0.5" style="flex:none;width:90px">
-          <span style="flex:none">km</span>
-        </div>
-        <div class="note">Kéo ghim trên bản đồ để dời vùng; kéo thanh trượt hoặc nhập số để đổi bán kính. Có thể cắm nhiều vùng.</div>
-      </div>
-      <div class="block">
-        <div id="zsum"></div>
-        <div class="opts"><label><input type="checkbox" id="zFilter"> <span>Chỉ hiện đại lý trong vùng (ở danh sách khách hàng và bản đồ)</span></label></div>
-        <div class="exports" style="margin-top:0">
-          <button class="small" id="zSelAll">Chọn tất cả đại lý trong vùng</button>
-          <button class="small" id="zClear">Xoá hết vùng</button>
-        </div>
-      </div>
-      <div class="scroll" id="zoneList"></div>
-    </section>
-
-    <!-- LỘ TRÌNH -->
-    <section class="pane" id="p-route">
-      <div class="block">
-        <h3>Tuỳ chọn</h3>
-        <div class="opts">
-          <label><input type="checkbox" id="oClosed"> <span>Quay về điểm xuất phát sau khi đi hết</span></label>
-          <label><input type="checkbox" id="oRoad" checked> <span>Tối ưu theo đường bộ thực tế (tối đa 100 điểm), nếu không sẽ dùng đường chim bay</span></label>
-        </div>
-        <button class="primary" id="btnGo2" style="width:100%">Tính lộ trình ngắn nhất</button>
-      </div>
-      <div class="scroll" id="routeOut"><div class="empty-msg">Chọn điểm xuất phát và các khách hàng, rồi bấm tính lộ trình.</div></div>
-    </section>
-  </aside>
-
-  <main id="mapwrap">
-    <div id="map"></div>
-    <div id="hint">Bấm vào bản đồ để đặt điểm xuất phát</div>
-    <div class="mapbtn">
-      <button id="btnFit">Xem tất cả</button>
-      <button id="btnProvMode">Xem theo tỉnh</button>
+<div id="login-overlay">
+    <div class="login-box">
+        <h2 style="color:var(--primary)">ĐIỀU PHỐI V13.8</h2>
+        <input type="text" id="username" placeholder="User" value="admin">
+        <input type="password" id="password" placeholder="Pass" value="HA5566">
+        <button onclick="checkLogin()">VÀO HỆ THỐNG</button>
     </div>
-  </main>
 </div>
 
+<div id="main-app">
+    <div id="map"></div>
+    <button id="floating-toggle" onclick="toggleSidebar()">☰</button>
+
+    <div id="sidebar">
+        <!-- CARD TÌM KIẾM ĐỊA PHƯƠNG & ĐẠI LÝ -->
+        <div class="card">
+            <div style="font-weight:800; color:var(--primary); font-size:11px; margin-bottom:8px;">🔍 TÌM KIẾM CHIẾN LƯỢC</div>
+            
+            <!-- Tìm kiếm địa phương kèm tổng hợp số liệu và danh sách đại lý nội vùng -->
+            <div style="margin-bottom: 12px;">
+                <input type="text" id="areaSearchInput" placeholder="Soi viền vùng. Vd: Hà Nội, Hải Dương" onkeypress="if(event.key==='Enter') searchArea()">
+                <button onclick="searchArea()" style="width:100%; padding:10px; background:var(--dark); color:white; border:none; border-radius:8px; font-weight:bold; font-size:11px; cursor:pointer; margin-top:5px;">SOI VIỀN & THỐNG KÊ VÙNG</button>
+                
+                <!-- DANH SÁCH KHU VỰC ĐANG SOI -->
+                <div id="areaZoneList" style="margin-top: 8px; max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px;"></div>
+            </div>
+
+            <!-- Tìm kiếm Đại lý định vị nhanh -->
+            <div class="search-container">
+                <input type="text" id="dealerSearchInput" placeholder="Tìm tên đại lý để định vị gấp..." oninput="onDealerSearchInput(this.value)">
+                <div id="dealerSuggestions" class="search-suggestions"></div>
+            </div>
+        </div>
+        
+        <div class="card" style="background:#f1f2f6;">
+            <div style="font-weight:800; color:var(--dark); font-size:11px; margin-bottom:8px;">📍 QUẢN LÝ ĐIỀU PHỐI</div>
+            <select id="pinToggle" style="width:100%; padding:10px; border-radius:8px; margin-bottom:8px;">
+                <option value="off">CHẾ ĐỘ XEM</option>
+                <option value="on">CHẾ ĐỘ CẮM KHO (CLICK BẢN ĐỒ)</option>
+            </select>
+            <div style="display: flex; gap: 5px; margin-bottom: 8px;">
+                <input type="text" id="coordInput" placeholder="Lat, Lng" style="flex:1; padding:10px; border-radius:8px; border: 1px solid #ddd; font-size:13px;">
+                <button onclick="addWarehouseByCoords()" style="padding:10px; background:var(--primary); color:white; border:none; border-radius:8px; font-weight:bold; font-size:11px; cursor:pointer;">THÊM</button>
+            </div>
+            
+            <button onclick="startCompareSelection()" style="width:100%; padding:12px; background:var(--blue); color:white; border:none; border-radius:8px; font-weight:bold; font-size:12px; cursor:pointer; margin-bottom:8px;">📊 BẮT ĐẦU SO SÁNH KHO</button>
+            <div id="selection-overlay" style="display:none; padding:10px; background:#eef2f7; border-radius:10px; border:1px dashed var(--blue); margin-bottom:8px;">
+                <div id="selection-list-container" style="max-height:150px; overflow-y:auto; margin-bottom:10px;"></div>
+                <button onclick="generateComparisonTable()" style="width:100%; padding:10px; background:var(--teal); color:white; border:none; border-radius:8px; font-weight:bold;">XÁC NHẬN SO SÁNH</button>
+                <button onclick="cancelCompare()" style="width:100%; margin-top:5px; background:none; border:none; color:#666; font-size:10px; cursor:pointer;">Hủy bỏ</button>
+            </div>
+
+            <button onclick="resetUserWarehouses()" style="width:100%; padding:8px; background:var(--warning); color:var(--dark); border:none; border-radius:8px; font-weight:bold; font-size:11px; cursor:pointer;">⚠️ RESET SẠCH KHO ĐÃ CẮM</button>
+        </div>
+
+        <div class="section-header" onclick="toggleGroup('company-group')">
+            <span class="section-title">🏭 Hệ thống kho cố định</span>
+            <span id="arrow-company-group">◀</span>
+        </div>
+        <div id="company-group" class="group-content"><div id="company-warehouse-list"></div></div>
+
+        <div class="section-header" onclick="toggleGroup('user-group')">
+            <span class="section-title">📍 Kho cắm điều phối</span>
+            <span id="arrow-user-group">◀</span>
+        </div>
+        <div id="user-group" class="group-content"><div id="user-warehouse-list"></div></div>
+        
+        <div style="margin-top:20px;">
+            <button onclick="loadDataOnline()" style="width:100%; padding:12px; background:var(--teal); color:white; border:none; border-radius:8px; font-weight:bold; margin-bottom:8px;">LÀM MỚI DỮ LIỆU</button>
+            <button onclick="logout()" style="width:100%; padding:12px; background:#fff; border:1px solid #ddd; border-radius:8px; font-weight:bold;">ĐĂNG XUẤT</button>
+        </div>
+    </div>
+</div>
+
+<div id="compare-modal">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3 style="margin:0; color:var(--blue);">📊 ĐỐI CHIẾU CHIẾN LƯỢC KHO</h3>
+        <button onclick="closeCompareModal()" style="background:var(--primary); color:white; border:none; padding:8px 15px; border-radius:10px; font-weight:bold; cursor:pointer;">ĐÓNG [X]</button>
+    </div>
+    <div class="compare-scroll-area">
+        <table class="compare-grid-table">
+            <thead id="compare-grid-head"></thead>
+            <tbody id="compare-grid-body"></tbody>
+        </table>
+    </div>
+</div>
+<div id="modal-backdrop" style="position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:4999; display:none;"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+
 <script>
-/* ====== CẤU HÌNH ====== */
-const DEFAULT_SHEET = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSqx48yei68qBJFSiHZzxCeGO0df4IDE6md9hzu7TUv5GjgOvU9yIpm4lEN6HJw9zJuek4YYMj8XAyn/pubhtml?gid=965897694&single=true';
-const OSRM = 'https://router.project-osrm.org';
-const LIST_LIMIT = 400;
+    const COMPANY_WAREHOUSES_DATA = [
+        { name: 'Kho Hải Dương', lat: 20.935218, lng: 106.263725 },
+        { name: 'Kho hàng Bồ Đề', lat: 21.032984, lng: 105.868785 },
+        { name: 'Kho Nam Định', lat: 20.388619, lng: 106.181112 },
+        { name: 'Kho Nghệ An', lat: 18.669113, lng: 105.619930 },
+        { name: 'Kho Phú Thọ', lat: 21.337913, lng: 105.371026 },
+        { name: 'Kho Thanh Hóa', lat: 19.841778, lng: 105.803065 },
+        { name: 'Kho Xuân Mai', lat: 20.92706308, lng: 105.5969979 },
+        { name: 'Kho Ninh Bình', lat: 20.327513, lng: 105.729169 },
+        { name: 'Kho Thái Bình', lat: 20.47945838, lng: 106.2942788 },
+        { name: 'Kho Hưng Yên', lat: 20.76934, lng: 106.051002 }
+    ];
 
-/* ====== TIỆN ÍCH ====== */
-const $ = s => document.querySelector(s);
-const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const norm = s => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd').toLowerCase().trim();
-const fmtKm = m => (m / 1000).toFixed(m < 10000 ? 1 : 0) + ' km';
-const fmtTime = s => { const m = Math.round(s / 60); return m < 60 ? m + ' phút' : Math.floor(m / 60) + ' giờ ' + (m % 60) + ' phút'; };
-const store = { get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }, set(k,v){ try{ localStorage.setItem(k,v); }catch(e){} } };
+    const BORDER_COLORS = ['#ff1744', '#0984e3', '#00b894', '#6c5ce7', '#e84393', '#d63031', '#2de300', '#f39c12'];
+    let colorIndex = 0;
+    let activeZones = []; 
 
-function haversine(a, b) {
-  const R = 6371000, r = Math.PI / 180;
-  const dLat = (b.lat - a.lat) * r, dLng = (b.lng - a.lng) * r;
-  const x = Math.sin(dLat/2)**2 + Math.cos(a.lat*r) * Math.cos(b.lat*r) * Math.sin(dLng/2)**2;
-  return 2 * R * Math.asin(Math.sqrt(x));
-}
+    const map = L.map('map', { 
+    zoomSnap: 0.1, 
+    zoomControl: false 
+}).setView([20.8, 106.0], 9);
 
-/* ====== ĐỌC DỮ LIỆU ====== */
-function toCsvUrl(u) {
-  u = u.trim();
-  if (/output=csv|format=csv/.test(u)) return u;
-  if (/\/pubhtml/.test(u)) { u = u.replace('/pubhtml', '/pub'); return u + (u.includes('?') ? '&' : '?') + 'output=csv'; }
-  if (/\/pub\?/.test(u)) return u + '&output=csv';
-  const m = u.match(/\/spreadsheets\/d\/([^/]+)/);
-  if (m) { const g = (u.match(/gid=(\d+)/) || [])[1] || '0'; return `https://docs.google.com/spreadsheets/d/${m[1]}/export?format=csv&gid=${g}`; }
-  return u;
-}
+/* BẢN ĐỒ NỀN OPENSTREETMAP - KHÔNG CẦN API KEY */
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
 
-function parseCSV(t) {
-  const rows = []; let row = [], cell = '', q = false;
-  t = t.replace(/^\uFEFF/, '');
-  for (let i = 0; i < t.length; i++) {
-    const c = t[i];
-    if (q) {
-      if (c === '"') { if (t[i+1] === '"') { cell += '"'; i++; } else q = false; }
-      else cell += c;
-    } else if (c === '"') q = true;
-    else if (c === ',') { row.push(cell); cell = ''; }
-    else if (c === '\n' || c === '\r') {
-      if (c === '\r' && t[i+1] === '\n') i++;
-      row.push(cell); cell = ''; rows.push(row); row = [];
-    } else cell += c;
-  }
-  if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
-  return rows.filter(r => r.some(c => c.trim()));
-}
+    function checkLogin() { if (document.getElementById('username').value === 'admin' && document.getElementById('password').value === 'HA5566') { localStorage.setItem('isLogged', 'true'); enterApp(); } }
+    function logout() { localStorage.removeItem('isLogged'); location.reload(); }
+    window.onload = function() { if (localStorage.getItem('isLogged') === 'true') enterApp(); };
+    function enterApp() { document.getElementById('login-overlay').style.display = 'none'; document.getElementById('main-app').style.display = 'flex'; setTimeout(() => { map.invalidateSize(); }, 400); loadDataOnline(); initWarehouses(); }
 
-function inVN(lat, lng) { return lat >= 5 && lat <= 24 && lng >= 100 && lng <= 111; }
-function fixLL(a, b) {
-  if (!isFinite(a) || !isFinite(b)) return null;
-  if (inVN(a, b)) return { lat: a, lng: b };
-  if (inVN(b, a)) return { lat: b, lng: a };
-  if (Math.abs(a) <= 90 && Math.abs(b) <= 180 && (a !== 0 || b !== 0)) return { lat: a, lng: b };
-  return null;
-}
-function parseCombined(s) {
-  s = String(s ?? ''); if (!/\d/.test(s)) return null;
-  let m = s.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/)
-       || s.match(/[?&](?:q|ll|query|destination)=(-?\d+\.\d+)(?:,|%2C)(-?\d+\.\d+)/)
-       || s.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/)
-       || s.match(/(-?\d{1,3}[.,]\d{3,})\s*[,;\s]\s*(-?\d{1,3}[.,]\d{3,})/);
-  if (!m) return null;
-  return fixLL(parseFloat(m[1].replace(',', '.')), parseFloat(m[2].replace(',', '.')));
-}
-const tok = s => norm(s).replace(/[^a-z0-9]+/g, ' ').trim();
-const OLD_PROVS = ['An Giang','Bà Rịa - Vũng Tàu','Bắc Giang','Bắc Kạn','Bạc Liêu','Bắc Ninh','Bến Tre','Bình Định','Bình Dương','Bình Phước','Bình Thuận','Cà Mau','Cần Thơ','Cao Bằng','Đà Nẵng','Đắk Lắk','Đắk Nông','Điện Biên','Đồng Nai','Đồng Tháp','Gia Lai','Hà Giang','Hà Nam','Hà Nội','Hà Tĩnh','Hải Dương','Hải Phòng','Hậu Giang','Hòa Bình','Hồ Chí Minh','Hưng Yên','Khánh Hòa','Kiên Giang','Kon Tum','Lai Châu','Lâm Đồng','Lạng Sơn','Lào Cai','Long An','Nam Định','Nghệ An','Ninh Bình','Ninh Thuận','Phú Thọ','Phú Yên','Quảng Bình','Quảng Nam','Quảng Ngãi','Quảng Ninh','Quảng Trị','Sóc Trăng','Sơn La','Tây Ninh','Thái Bình','Thái Nguyên','Thanh Hóa','Thừa Thiên Huế','Tiền Giang','Trà Vinh','Tuyên Quang','Vĩnh Long','Vĩnh Phúc','Yên Bái'];
-const PROV_ALIAS = [['tp hcm','Hồ Chí Minh'],['tphcm','Hồ Chí Minh'],['hcm','Hồ Chí Minh'],['sai gon','Hồ Chí Minh'],['hue','Thừa Thiên Huế'],['ba ria','Bà Rịa - Vũng Tàu'],['vung tau','Bà Rịa - Vũng Tàu'],['brvt','Bà Rịa - Vũng Tàu'],['bac can','Bắc Kạn'],['daklak','Đắk Lắk'],['daknong','Đắk Nông']];
-const PROV_MATCH = [...OLD_PROVS.map(n => [tok(n), n]), ...PROV_ALIAS].sort((a, b) => b[0].length - a[0].length);
-const UNK = 'Chưa rõ tỉnh', UNK_K = norm(UNK);
-function matchProv(text) {
-  const t = ' ' + tok(text) + ' ';
-  for (const [k, n] of PROV_MATCH) if (t.includes(' ' + k + ' ')) return n;
-  return '';
-}
-const SKIP_SEG = /^(x|p|tt|xa|phuong|thi tran|thon|xom|ap|to|khu pho|duong|pho|ngo|ngach|hem|so|ban|tdp|kp)\b/;
-const DIST_SEG = /^(huyen|quan|thi xa|thanh pho|tp|h|q|tx)\b/;
-const PREFIX_ONLY = /^(tp|tx|tt|x|p|h|q|xa|phuong|thi tran|thi xa|thanh pho|huyen|quan|tinh|dac khu)$/;
+    map.createPane('paneDealers').style.zIndex = 700;
+    let dealers = [], warehouses = [], highlightLayer = L.layerGroup().addTo(map), 
+        heatLayerGroup = L.layerGroup().addTo(map), dealerLayer = L.layerGroup().addTo(map), heatLayer = null;
+    
+    let dealerMarkersMap = {};
 
-/* Tách địa chỉ kiểu "Quốc Lộ 2. X. Vị Xuyên. Tuyên Quang" hoặc "…, Xã A, Huyện B, Tỉnh C" */
-function splitAddr(addr) {
-  const raw = String(addr || '').split(/[,;\n]|\.(?=\s)|\.$/).map(x => x.trim()).filter(Boolean);
-  const out = [];
-  for (let i = 0; i < raw.length; i++) {
-    let x = raw[i];
-    if (PREFIX_ONLY.test(tok(x)) && i + 1 < raw.length) { x += ' ' + raw[i + 1]; i++; }
-    if (/^vi[eệ]t\s*nam$/i.test(x)) continue;
-    out.push(x);
-  }
-  return out;
-}
-/* Tỉnh nằm ở phần cuối địa chỉ; bỏ qua xã/phường/đường trùng tên tỉnh */
-function resolveProv(addr, cell) {
-  const segs = splitAddr(addr);
-  let name = '', idx = -1;
-  for (let i = segs.length - 1; i >= 0; i--) {
-    const m = matchProv(segs[i]);
-    if (!m || SKIP_SEG.test(tok(segs[i]))) continue;
-    name = m; idx = i; break;
-  }
-  if (!name && cell) name = matchProv(cell);
-  return { name, idx, segs };
-}
-function guessDist(segs, idx) {
-  for (let i = (idx >= 0 ? idx : segs.length) - 1; i >= 0; i--) if (DIST_SEG.test(tok(segs[i]))) return segs[i];
-  return '';
-}
-
-/* ====== Bảng đối chiếu sáp nhập: xã mới -> huyện cũ, tỉnh cũ ====== */
-let MAPIDX = null, MAPSRC = '';
-const WARD_TYPES = [['thi tran', 'thi tran'], ['dac khu', 'dac khu'], ['tt', 'thi tran'], ['xa', 'xa'], ['x', 'xa'], ['phuong', 'phuong'], ['p', 'phuong']];
-function splitType(text) {
-  const t = tok(text);
-  for (const [p, ty] of WARD_TYPES) if (t.startsWith(p + ' ')) return { type: ty, key: t.slice(p.length + 1) };
-  return { type: '', key: t };
-}
-const stripDist = t => tok(t).replace(/^(huyen|quan|thi xa|thanh pho|tp)\s+/, '');
-const canonOld = n => matchProv(n) || String(n || '').replace(/^(Tỉnh|Thành phố)\s+/i, '').trim();
-function buildMapIndex(j) {
-  const idx = new Map(), pc = new Map();
-  const canon = n => { let v = pc.get(n); if (v === undefined) { v = canonOld(n); pc.set(n, v); } return v; };
-  for (const r of (j.ward_mapping || [])) {
-    if (!r.new_ward || !r.old_district) continue;
-    const w = splitType(r.new_ward), k = canon(r.new_province) + '|' + w.key;
-    let a = idx.get(k); if (!a) idx.set(k, a = []);
-    a.push({ ty: w.type, op: canon(r.old_province), od: r.old_district, odk: stripDist(r.old_district), ow: splitType(r.old_ward || '').key });
-  }
-  return idx;
-}
-async function loadMapping() {
-  const urls = ['mapping.json', 'https://huggingface.co/undertheseanlp/address/resolve/main/data/mapping.json'];
-  for (const u of urls) {
-    try {
-      const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 60000);
-      const r = await fetch(u, { signal: ctl.signal }); clearTimeout(t);
-      if (!r.ok) continue;
-      const idx = buildMapIndex(await r.json());
-      if (idx.size) { MAPIDX = idx; MAPSRC = u; return true; }
-    } catch (e) { /* thử nguồn tiếp theo */ }
-  }
-  return false;
-}
-/* Xã mới trong tỉnh mới -> (tỉnh cũ, huyện cũ). Ưu tiên huyện cũ trùng tên xã mới, rồi huyện có nhiều xã cũ nhất. */
-function lookupOld(prov, wardSeg) {
-  if (!MAPIDX || !prov || !wardSeg) return null;
-  const w = splitType(wardSeg);
-  let c = MAPIDX.get(prov + '|' + w.key);
-  if (!c) return null;
-  if (w.type) { const f = c.filter(r => r.ty === w.type); if (f.length) c = f; }
-  const g = new Map();
-  for (const r of c) {
-    const k = r.op + '|' + r.od, e = g.get(k) || { op: r.op, od: r.od, n: 0, s: 0 };
-    e.n++; if (r.odk === w.key) e.s += 3; if (r.ow === w.key) e.s += 2;
-    g.set(k, e);
-  }
-  return [...g.values()].sort((a, b) => b.s - a.s || b.n - a.n)[0];
-}
-/* Đại lý thiếu tỉnh/huyện: lấy theo đại lý gần nhất đã xác định (theo toạ độ) */
-function fillByNeighbors(list) {
-  const known = list.filter(a => a.prov !== UNK);
-  const anyDist = known.some(b => b.dist);
-  let n = 0;
-  for (const a of list) {
-    const needProv = a.prov === UNK, needDist = !a.dist;
-    if (!needProv && !(needDist && anyDist)) continue;
-    let best = null, bd = Infinity;
-    for (const b of known) {
-      if (b === a) continue;
-      if (!needProv && (b.prov !== a.prov || !b.dist)) continue;
-      const d = haversine(a, b); if (d < bd) { bd = d; best = b; }
-    }
-    if (!best) continue;
-    if (needProv && bd <= 20000) { a.prov = best.prov; a.how = 'lân cận'; n++; if (bd <= 8000 && best.dist) a.dist = best.dist; }
-    else if (!needProv && bd <= 8000) a.dist = best.dist;
-  }
-  return n;
-}
-
-function buildAgents(rows) {
-  let hi = rows.findIndex((r, i) => i < 5 && r.filter(c => c.trim()).length >= 2);
-  if (hi < 0) hi = 0;
-  const head = rows[hi].map(norm);
-  const find = pats => { for (const p of pats) { const i = head.findIndex(h => p.test(h)); if (i >= 0) return i; } return -1; };
-  const col = {
-    name:    find([/^ten (dai ly|npp|khach|cua hang|kh)/, /^ten/, /name/, /dai ly|khach|cua hang|npp/]),
-    lat:     find([/^(lat|latitude|vi do)/]),
-    lng:     find([/^(lng|lon|long|longitude|kinh do)/]),
-    combo:   find([/dinh vi|toa do|location|gps|vi tri|coordinate|map|link/]),
-    provOld: find([/tinh.*cu|cu.*tinh/]),
-    distOld: find([/huyen.*cu|quan.*cu|cu.*huyen|cu.*quan/]),
-    prov:    find([/^tinh|thanh pho|^tp$|province|^city/]),
-    dist:    find([/^quan|huyen|district/]),
-    addr:    find([/dia chi|address/]),
-    phone:   find([/sdt|so dien thoai|dien thoai|phone|tel/]),
-  };
-  if (col.prov === col.provOld) col.prov = -1;
-  if (col.dist === col.distOld) col.dist = -1;
-  const out = []; let skipped = 0;
-  for (let i = hi + 1; i < rows.length; i++) {
-    const r = rows[i]; let ll = null;
-    if (col.lat >= 0 && col.lng >= 0)
-      ll = fixLL(parseFloat(String(r[col.lat]).replace(',', '.')), parseFloat(String(r[col.lng]).replace(',', '.')));
-    if (!ll && col.combo >= 0) ll = parseCombined(r[col.combo]);
-    if (!ll) for (const c of r) { ll = parseCombined(c); if (ll) break; }
-    if (!ll) { skipped++; continue; }
-    const g = k => (col[k] >= 0 ? String(r[col[k]] ?? '').trim() : '');
-    let name = g('name');
-    if (!name) name = r.find(c => c.trim() && !parseCombined(c) && isNaN(Number(c))) || ('Điểm ' + (out.length + 1));
-    const addr = g('addr');
-    const addrSrc = addr || r.filter(c => c && !parseCombined(c)).join(', ');
-    const rp = resolveProv(addrSrc, g('prov'));
-    let prov = '', dist = '', how = '';
-    if (col.provOld >= 0) { prov = matchProv(g('provOld')); if (prov) how = 'cột'; }
-    if (col.distOld >= 0) dist = g('distOld');
-    if (!prov || !dist) {
-      const hit = lookupOld(rp.name, rp.idx > 0 ? rp.segs[rp.idx - 1] : '');
-      if (hit && (!prov || hit.op === prov)) { if (!prov) { prov = hit.op; how = 'đối chiếu'; } if (!dist) dist = hit.od; }
-    }
-    if (!prov && rp.name) { prov = rp.name; how = 'địa chỉ'; }
-    if (!dist) dist = g('dist') || guessDist(rp.segs, rp.idx);
-    out.push({ id: out.length, name: name.trim(), addr, prov: prov || UNK, dist, how: how || 'chưa rõ', phone: g('phone'), lat: ll.lat, lng: ll.lng });
-  }
-  const near = fillByNeighbors(out);
-  out.forEach(a => { a.pk = norm(a.prov); a.dk = norm(a.dist); a.hay = norm([a.name, a.addr, a.phone, a.dist, a.prov].join(' ')); });
-  const cnt = k => out.filter(a => a.how === k).length;
-  const stats = { col: cnt('cột'), map: cnt('đối chiếu'), addr: cnt('địa chỉ'), near, unk: out.filter(a => a.prov === UNK).length };
-  const used = Object.entries(col).filter(([, v]) => v >= 0).map(([k, v]) => `${k}: “${rows[hi][v].trim()}”`).join(' · ');
-  return { agents: out, skipped, used, stats };
-}
-
-/* ====== TRẠNG THÁI ====== */
-let agents = [], byId = new Map(), selected = new Set();
-let start = null, routeRes = null, provMode = false, pickingStart = false;
-const filter = { q: '', prov: '', dist: '' };
-
-/* ====== BẢN ĐỒ ====== */
-const map = L.map('map', { zoomControl: true, preferCanvas: true }).setView([16.2, 106.2], 6);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
-const agentLayer = L.layerGroup().addTo(map);
-const bubbleLayer = L.layerGroup();
-const routeLayer = L.layerGroup().addTo(map);
-const startLayer = L.layerGroup().addTo(map);
-let markers = new Map();
-
-function popupHtml(a) {
-  return `<b>${esc(a.name)}</b><br>${esc(a.addr)}${a.addr ? '<br>' : ''}${a.phone ? '☎ ' + esc(a.phone) + '<br>' : ''}
-    <button class="pbtn" onclick="App.toggle(${a.id})">${selected.has(a.id) ? 'Bỏ chọn' : 'Chọn'}</button>
-    <button class="pbtn" onclick="App.setStartAgent(${a.id})">🚩 Xuất phát</button>`;
-}
-
-function matches(a) {
-  if (zoneFilter && zones.length && !zoneU.has(a.id)) return false;
-  if (filter.prov && a.pk !== filter.prov) return false;
-  if (filter.dist && a.dk !== filter.dist) return false;
-  if (filter.q && !a.hay.includes(norm(filter.q))) return false;
-  return true;
-}
-const filtering = () => !!(filter.prov || filter.dist || filter.q || (zoneFilter && zones.length));
-
-function styleMarker(a) {
-  const m = markers.get(a.id); if (!m) return;
-  const isSel = selected.has(a.id), ok = matches(a);
-  m.setStyle(isSel
-    ? { radius: 8, color: '#fff', weight: 2, fillColor: '#e4572e', fillOpacity: 1, opacity: 1 }
-    : ok || !filtering()
-      ? { radius: 5.5, color: '#fff', weight: 1.5, fillColor: '#2f6fb5', fillOpacity: .95, opacity: 1 }
-      : { radius: 4, color: '#999', weight: 1, fillColor: '#bbb', fillOpacity: .35, opacity: .35 });
-  if (isSel) m.bringToFront();
-}
-function styleAll() { agents.forEach(styleMarker); }
-
-function buildMarkers() {
-  agentLayer.clearLayers(); markers.clear();
-  agents.forEach(a => {
-    const m = L.circleMarker([a.lat, a.lng], { radius: 5 });
-    m.bindPopup(() => popupHtml(a));
-    m.bindTooltip(a.name, { direction: 'top' });
-    m.addTo(agentLayer); markers.set(a.id, m);
-  });
-  styleAll();
-}
-
-function fitAgents(list) {
-  if (!list.length) return;
-  const b = L.latLngBounds(list.map(a => [a.lat, a.lng]));
-  map.fitBounds(b, { padding: [40, 40], maxZoom: 13 });
-}
-
-/* ====== BONG BÓNG THEO TỈNH ====== */
-function provStats() {
-  const g = new Map();
-  agents.forEach(a => {
-    let p = g.get(a.pk); if (!p) { p = { key: a.pk, name: a.prov, list: [], sel: 0 }; g.set(a.pk, p); }
-    p.list.push(a); if (selected.has(a.id)) p.sel++;
-  });
-  return [...g.values()].sort((x, y) => y.list.length - x.list.length || x.name.localeCompare(y.name, 'vi'));
-}
-function drawBubbles() {
-  bubbleLayer.clearLayers();
-  provStats().forEach(p => {
-    const lat = p.list.reduce((s, a) => s + a.lat, 0) / p.list.length;
-    const lng = p.list.reduce((s, a) => s + a.lng, 0) / p.list.length;
-    const size = Math.round(Math.min(76, 36 + Math.sqrt(p.list.length) * 5));
-    const icon = L.divIcon({
-      className: '', iconSize: [size, size],
-      html: `<div class="bubble ${p.sel ? 'has' : ''}" style="width:${size}px;height:${size}px"><span>${p.sel ? p.sel + '/' : ''}${p.list.length}<small>${esc(p.name)}</small></span></div>`
+    map.on('click', function(e) {
+        const mode = document.getElementById('pinToggle').value;
+        if (mode === 'on') {
+            const lat = e.latlng.lat.toFixed(6);
+            const lng = e.latlng.lng.toFixed(6);
+            document.getElementById('coordInput').value = `${lat}, ${lng}`;
+            
+            const name = prompt("Nhập tên kho điều phối:", "Kho mới " + (warehouses.filter(w=>!w.isCompany).length + 1));
+            if (name) {
+                addWarehouse(e.latlng, 5, name, false);
+                document.getElementById('pinToggle').value = 'off';
+            }
+        }
     });
-    L.marker([lat, lng], { icon }).on('click', () => App.openProv(p.key)).addTo(bubbleLayer);
-  });
-}
-function renderProvGrid() {
-  const el = $('#provgrid');
-  const pq = tok($('#provQ').value);
-  const ps = provStats().filter(p => !pq || tok(p.name).includes(pq));
-  el.innerHTML = ps.map(p => `
-    <div class="pcard" data-k="${esc(p.key)}">
-      <b>${esc(p.name)}</b>
-      <span class="n">${p.list.length}</span>
-      <small>${p.sel ? p.sel + ' đã chọn' : 'đại lý'}</small>
-      <span class="pa"><button class="small" data-all="${esc(p.key)}">Chọn cả tỉnh</button></span>
-    </div>`).join('') || '<div class="empty-msg">Chưa có dữ liệu.</div>';
-}
-function setProvMode(on) {
-  provMode = on;
-  $('#btnProvMode').classList.toggle('on', on);
-  if (on) { map.removeLayer(agentLayer); drawBubbles(); bubbleLayer.addTo(map); fitAgents(agents); }
-  else { map.removeLayer(bubbleLayer); agentLayer.addTo(map); }
-}
 
-/* ====== DANH SÁCH ====== */
-function provOpts() {
-  const cnt = new Map(); agents.forEach(a => cnt.set(a.pk, (cnt.get(a.pk) || 0) + 1));
-  const o = OLD_PROVS.map(n => ({ v: norm(n), label: n, k: tok(n), count: cnt.get(norm(n)) || 0 }))
-    .sort((a, b) => a.label.localeCompare(b.label, 'vi'));
-  if (cnt.get(UNK_K)) o.push({ v: UNK_K, label: UNK, k: tok(UNK), count: cnt.get(UNK_K) });
-  return o;
-}
-function distOpts() {
-  if (!filter.prov) return [];
-  const m = new Map();
-  agents.forEach(a => {
-    if (!a.dist || a.pk !== filter.prov) return;
-    const e = m.get(a.dk) || { v: a.dk, label: a.dist, k: tok(a.dist), count: 0 };
-    e.count++; m.set(a.dk, e);
-  });
-  return [...m.values()].sort((a, b) => a.label.localeCompare(b.label, 'vi', { numeric: true }));
-}
-function makeCombo(root, { allLabel, getOpts, onPick }) {
-  const inp = root.querySelector('input'), dd = root.querySelector('.dd'), clr = root.querySelector('.clr');
-  let value = '', hi = 0, items = [], typing = false;
-  const labelOf = v => v ? (getOpts().find(o => o.v === v)?.label || '') : '';
-  const sync = () => { inp.value = labelOf(value); clr.style.display = value ? 'block' : 'none'; };
-  function draw() {
-    const q = typing ? tok(inp.value) : '';
-    items = getOpts().filter(o => !q || o.k.includes(q));
-    if (!q) items = [{ v: '', label: allLabel, count: null }, ...items];
-    if (hi >= items.length) hi = 0;
-    dd.innerHTML = items.length
-      ? items.map((o, i) => `<div class="opt ${i === hi ? 'hi' : ''} ${o.count === 0 ? 'dim' : ''}" data-i="${i}"><span>${esc(o.label)}</span>${o.count != null ? `<small>${o.count}</small>` : ''}</div>`).join('')
-      : '<div class="opt none">Không tìm thấy</div>';
-    dd.style.display = 'block';
-    dd.querySelector('.hi')?.scrollIntoView({ block: 'nearest' });
-  }
-  const close = () => { dd.style.display = 'none'; typing = false; sync(); };
-  function pick(i) { const o = items[i]; if (!o) return; value = o.v; close(); inp.blur(); onPick(value); }
-  inp.addEventListener('focus', () => { typing = false; hi = 0; draw(); inp.select(); });
-  inp.addEventListener('input', () => { typing = true; hi = 0; draw(); });
-  inp.addEventListener('blur', close);
-  inp.addEventListener('keydown', e => {
-    if (e.key === 'ArrowDown') { hi = Math.min(hi + 1, items.length - 1); draw(); e.preventDefault(); }
-    else if (e.key === 'ArrowUp') { hi = Math.max(hi - 1, 0); draw(); e.preventDefault(); }
-    else if (e.key === 'Enter') { pick(hi); e.preventDefault(); }
-    else if (e.key === 'Escape') inp.blur();
-  });
-  dd.addEventListener('mousedown', e => { e.preventDefault(); const o = e.target.closest('.opt'); if (o && o.dataset.i != null) pick(+o.dataset.i); });
-  clr.addEventListener('mousedown', e => { e.preventDefault(); value = ''; sync(); onPick(''); });
-  return { set(v) { value = v; sync(); } };
-}
-function refreshDist() {
-  const o = distOpts(), inp = $('#cDist input');
-  inp.disabled = !o.length;
-  inp.placeholder = !filter.prov ? 'Huyện (cũ) — chọn tỉnh trước' : (o.length ? 'Huyện (cũ) — gõ để tìm…' : 'Tỉnh này chưa có dữ liệu huyện');
-  if (filter.dist && !o.some(x => x.v === filter.dist)) filter.dist = '';
-  cDist.set(filter.dist);
-}
-function syncCombos() { cProv.set(filter.prov); refreshDist(); }
-function filtered() { return agents.filter(matches); }
-
-function renderList() {
-  const f = filtered();
-  const shown = f.slice(0, LIST_LIMIT);
-  $('#list').innerHTML = shown.map(a => `
-    <div class="item ${selected.has(a.id) ? 'sel' : ''}" data-id="${a.id}">
-      <input type="checkbox" ${selected.has(a.id) ? 'checked' : ''} aria-label="Chọn ${esc(a.name)}">
-      <div class="t"><b>${esc(a.name)}</b><small>${esc([a.addr, a.dist, a.prov].filter(Boolean).join(', '))}</small></div>
-      <div class="act">
-        <button data-act="start" title="Đặt làm điểm xuất phát">🚩</button>
-        <button data-act="zoom" title="Xem trên bản đồ">🔍</button>
-      </div>
-    </div>`).join('') +
-    (f.length > LIST_LIMIT ? `<div class="more">Đang hiện ${LIST_LIMIT}/${f.length} dòng. Hãy lọc thêm để thấy các điểm còn lại.</div>` : '') +
-    (!f.length ? '<div class="empty-msg">Không có đại lý nào khớp bộ lọc.</div>' : '');
-  updateCounts();
-}
-function updateCounts() {
-  const f = filtered();
-  $('#cnt').textContent = `${f.length} đại lý · đã chọn ${selected.size}`;
-  $('#bSel').textContent = selected.size;
-}
-
-/* ====== ĐIỂM XUẤT PHÁT ====== */
-function renderStart() {
-  startLayer.clearLayers();
-  const c = $('#startCard');
-  if (!start) { c.className = 'startcard empty'; c.innerHTML = '<b>Chưa chọn</b>'; return; }
-  c.className = 'startcard';
-  c.innerHTML = `<span>🚩</span><b>${esc(start.label)}</b><button class="small" id="clrStart">Bỏ</button>`;
-  $('#clrStart').onclick = () => { start = null; renderStart(); };
-  L.marker([start.lat, start.lng], { icon: L.divIcon({ className: '', html: '<div class="flag">🚩</div>', iconSize: [28, 28], iconAnchor: [14, 14] }), zIndexOffset: 1000 }).addTo(startLayer);
-}
-function setStart(s, pan = true) { start = s; renderStart(); if (pan) map.setView([s.lat, s.lng], Math.max(map.getZoom(), 12)); }
-
-/* ====== TÍNH LỘ TRÌNH ====== */
-function solveTSP(D, closed, ms) {
-  const n = D.length;
-  if (n <= 2) return [...Array(n).keys()];
-  const cost = r => { let s = 0; for (let i = 0; i < n - 1; i++) s += D[r[i]][r[i+1]]; if (closed) s += D[r[n-1]][r[0]]; return s; };
-  const un = new Set(); for (let i = 1; i < n; i++) un.add(i);
-  let r = [0];
-  while (un.size) { const l = r[r.length - 1]; let b = -1, bd = Infinity; for (const j of un) if (D[l][j] < bd) { bd = D[l][j]; b = j; } r.push(b); un.delete(b); }
-  const opt = r => {
-    let imp = true;
-    while (imp) {
-      imp = false;
-      for (let i = 1; i < n - 1; i++) for (let j = i + 1; j < n; j++) {
-        const a = r[i-1], b = r[i], c = r[j], d = j + 1 < n ? r[j+1] : (closed ? r[0] : -1);
-        let delta = D[a][c] - D[a][b];
-        if (d >= 0) delta += D[b][d] - D[c][d];
-        if (delta < -1e-9) { for (let x = i, y = j; x < y; x++, y--) { const t = r[x]; r[x] = r[y]; r[y] = t; } imp = true; }
-      }
+    function getGlowStyle(ds) {
+        if (ds <= 0) return { color: 'rgba(100, 100, 100, 0.3)', radius: 3, glowRadius: 0 };
+        if (ds < 200000000) return { color: '#7f8c8d', radius: 4, glowRadius: 8 };
+        if (ds < 500000000) return { color: '#2c3e50', radius: 5, glowRadius: 12 };
+        if (ds < 1000000000) return { color: '#d35400', radius: 6, glowRadius: 18 };
+        if (ds < 2000000000) return { color: '#f39c12', radius: 8, glowRadius: 22 };
+        return { color: '#e74c3c', radius: 10, glowRadius: 35 };
     }
-    return r;
-  };
-  let best = opt(r.slice()), bc = cost(best);
-  if (n >= 5) {
-    const t0 = performance.now();
-    while (performance.now() - t0 < ms) {
-      const p = [1 + Math.floor(Math.random() * n), 1 + Math.floor(Math.random() * n), 1 + Math.floor(Math.random() * n)].sort((a, b) => a - b);
-      if (p[0] === p[1] || p[1] === p[2]) continue;
-      const cand = opt([...best.slice(0, p[0]), ...best.slice(p[1], p[2]), ...best.slice(p[0], p[1]), ...best.slice(p[2])]);
-      const cc = cost(cand);
-      if (cc < bc - 1e-9) { best = cand; bc = cc; }
+
+    async function loadDataOnline() {
+        const url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSqx48yei68qBJFSiHZzxCeGO0df4IDE6md9hzu7TUv5GjgOvU9yIpm4lEN6HJw9zJuek4YYMj8XAyn/pub?gid=0&single=true&output=csv";
+        try {
+            const r = await fetch(url); const t = await r.text();
+            const rows = t.split(/\r?\n/).slice(1);
+            dealers = []; dealerLayer.clearLayers(); dealerMarkersMap = {}; let hp = [];
+            rows.forEach(line => {
+                const col = line.split(/,|\t/); if (col.length < 6) return;
+                let ds = parseFloat(col[5].toString().replace(/\./g, '').replace(/,/g, '')) || 0;
+                let lat = parseFloat(col[4].toString().replace(',', '.')), lng = parseFloat(col[3].toString().replace(',', '.'));
+                if (!isNaN(lat) && !isNaN(lng)) {
+                    const style = getGlowStyle(ds);
+                    if (ds > 0) L.circleMarker([lat, lng], { radius: style.glowRadius, color: 'transparent', fillColor: style.color, fillOpacity: 0.15, pane: 'paneDealers', interactive: false }).addTo(dealerLayer);
+                    const m = L.circleMarker([lat, lng], { radius: style.radius, color: style.color, weight: 1.5, fillOpacity: 1, fillColor: style.color, pane: 'paneDealers' }).addTo(dealerLayer);
+                    m.bindTooltip(`<b>${col[1]}</b><br>${ds.toLocaleString()}đ`, { sticky: true });
+                    
+                    dealers.push({ latlng: L.latLng(lat, lng), ds, ten: col[1], lat, lng });
+                    dealerMarkersMap[col[1].toLowerCase().trim()] = m;
+
+                    if (ds > 0) hp.push([lat, lng, Math.min(ds / 1000000000, 1)]);
+                }
+            });
+            if (heatLayer) heatLayerGroup.removeLayer(heatLayer);
+            heatLayer = L.heatLayer(hp, { radius: 25, blur: 20, max: 0.5, gradient: {0.4: '#bdc3c7', 0.6: '#e67e22', 0.8: '#f1c40f', 1.0: '#e74c3c'} }).addTo(heatLayerGroup);
+            updateStats();
+            if(activeZones.length > 0) recalculateAllZonesData();
+        } catch (e) { console.log("Lỗi tải data"); }
     }
-  }
-  return best;
-}
 
-async function fj(url, ms = 20000) {
-  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), ms);
-  try { const r = await fetch(url, { signal: ctl.signal }); if (!r.ok) throw new Error(r.status); return await r.json(); }
-  finally { clearTimeout(t); }
-}
-const lonlat = pts => pts.map(p => p.lng.toFixed(6) + ',' + p.lat.toFixed(6)).join(';');
-
-async function osrmTable(pts) {
-  const j = await fj(`${OSRM}/table/v1/driving/${lonlat(pts)}?annotations=distance`);
-  if (j.code !== 'Ok') throw new Error('table');
-  return j.distances;
-}
-async function osrmRoute(seq) {
-  const geo = [], legs = [], CH = 50;
-  for (let s = 0; s < seq.length - 1; s += CH - 1) {
-    const part = seq.slice(s, Math.min(s + CH, seq.length));
-    const j = await fj(`${OSRM}/route/v1/driving/${lonlat(part)}?overview=full&geometries=geojson`);
-    if (j.code !== 'Ok') throw new Error('route');
-    const rt = j.routes[0];
-    geo.push(...rt.geometry.coordinates.map(c => [c[1], c[0]]));
-    rt.legs.forEach(l => legs.push({ d: l.distance, t: l.duration }));
-  }
-  return { geo, legs };
-}
-
-async function compute() {
-  if (!start) { alert('Hãy chọn điểm xuất phát trước.'); return; }
-  const targets = agents.filter(a => selected.has(a.id) && a.id !== start.agentId);
-  if (!targets.length) { alert('Hãy chọn ít nhất một khách hàng để đi.'); return; }
-  showTab('route');
-  const btns = [$('#btnGo'), $('#btnGo2')]; btns.forEach(b => { b.disabled = true; b.textContent = 'Đang tính…'; });
-  $('#routeOut').innerHTML = '<div class="empty-msg">Đang tính lộ trình…</div>';
-  await new Promise(r => setTimeout(r, 30));
-  try {
-    const closed = $('#oClosed').checked, wantRoad = $('#oRoad').checked;
-    const pts = [{ lat: start.lat, lng: start.lng, label: start.label }, ...targets];
-    const n = pts.length;
-    let D = Array.from({ length: n }, (_, i) => Array.from({ length: n }, (_, j) => i === j ? 0 : haversine(pts[i], pts[j])));
-    let usedMatrix = 'chim bay';
-    if (wantRoad && n <= 100 && n > 2) {
-      try {
-        const T = await osrmTable(pts);
-        D = D.map((row, i) => row.map((h, j) => {
-          const a = T[i][j], b = T[j][i];
-          const v = (a != null && b != null) ? (a + b) / 2 : (a ?? b);
-          return v != null ? v : h * 1.4;
-        }));
-        usedMatrix = 'đường bộ';
-      } catch (e) { /* dùng đường chim bay */ }
+    function initWarehouses() {
+        COMPANY_WAREHOUSES_DATA.forEach(w => addWarehouse(L.latLng(w.lat, w.lng), 5, w.name, true));
+        const saved = JSON.parse(localStorage.getItem('savedWarehousesLog') || "[]");
+        saved.forEach(d => addWarehouse(L.latLng(d.lat, d.lng), d.radius, d.name, false));
     }
-    const ms = Math.min(2500, 400 + n * 15);
-    const order = solveTSP(D, closed, ms);
-    const seq = order.map(i => pts[i]); if (closed) seq.push(pts[0]);
 
-    let geo = null, legs = null, roadOK = false;
-    if (wantRoad && seq.length > 1) {
-      try { const rr = await osrmRoute(seq); geo = rr.geo; legs = rr.legs; roadOK = true; } catch (e) { }
+    function addWarehouse(latlng, radiusKm, name, isCompany = false) {
+        const id = isCompany ? ("comp-"+name) : ("user-"+Date.now()+Math.random());
+        const rM = radiusKm * 1000;
+        const color = isCompany ? '#2c3e50' : '#c0392b';
+        const m = L.marker(latlng, { draggable: true, icon: L.divIcon({ className: '', html: `<div class="wh-label" style="background:${color}">${name}</div>`, iconSize: null }) }).addTo(map);
+        const c = L.circle(latlng, { radius: rM, color: '#34495e', weight: 2, fillOpacity: 0.12, fillColor: '#2c3e50', interactive: false }).addTo(map);
+        const wh = { id, marker: m, circle: c, latlng, radius: rM, name, isCompany };
+        m.on('dragend', () => { wh.latlng = m.getLatLng(); c.setLatLng(wh.latlng); updateStats(); saveUserWarehouses(); });
+        warehouses.push(wh); updateStats(); if(!isCompany) saveUserWarehouses();
     }
-    if (!legs) legs = seq.slice(1).map((p, i) => ({ d: haversine(seq[i], p), t: 0 }));
-    routeRes = { seq, legs, geo, roadOK, closed, matrix: usedMatrix };
-    drawRoute(); renderRoute();
-  } catch (e) {
-    $('#routeOut').innerHTML = `<div class="empty-msg">Có lỗi khi tính lộ trình: ${esc(e.message || e)}</div>`;
-  } finally {
-    btns.forEach(b => { b.disabled = false; b.textContent = 'Tính lộ trình ngắn nhất'; });
-  }
-}
 
-function drawRoute() {
-  routeLayer.clearLayers();
-  const { seq, geo, roadOK } = routeRes;
-  const line = roadOK ? geo : seq.map(p => [p.lat, p.lng]);
-  L.polyline(line, { color: '#e4572e', weight: 4, opacity: .85, dashArray: roadOK ? null : '8 8' }).addTo(routeLayer);
-  seq.forEach((p, i) => {
-    if (i === 0 || (routeRes.closed && i === seq.length - 1)) return;
-    L.marker([p.lat, p.lng], { icon: L.divIcon({ className: '', html: `<div class="num">${i}</div>`, iconSize: [24, 24], iconAnchor: [12, 12] }), zIndexOffset: 500 })
-      .bindTooltip(p.name).addTo(routeLayer);
-  });
-  map.fitBounds(L.latLngBounds(line), { padding: [50, 50] });
-}
-
-function renderRoute() {
-  const { seq, legs, roadOK, closed, matrix } = routeRes;
-  const totD = legs.reduce((s, l) => s + l.d, 0), totT = legs.reduce((s, l) => s + l.t, 0);
-  const stops = closed ? seq.length - 1 : seq.length;
-  let html = `<div class="block"><div class="sum">
-      <div><b>${fmtKm(totD)}</b><small>${roadOK ? 'đường bộ' : 'chim bay'}</small></div>
-      <div><b>${roadOK ? fmtTime(totT) : '—'}</b><small>thời gian lái</small></div>
-      <div><b>${stops - 1}</b><small>điểm đến</small></div></div>`;
-  if (!roadOK) html += `<div class="note" style="margin:0 0 8px">Không lấy được đường bộ thực tế nên đang vẽ nét đứt theo đường chim bay; quãng đường thực tế sẽ dài hơn.</div>`;
-  else if (matrix !== 'đường bộ') html += `<div class="note" style="margin:0 0 8px">Thứ tự được sắp theo đường chim bay (trên 100 điểm), quãng đường hiển thị là đường bộ thực tế.</div>`;
-  html += `<div class="exports">
-      <button class="small" id="exGmap">Mở Google Maps</button>
-      <button class="small" id="exCsv">Tải CSV</button>
-      <button class="small" id="exCopy">Sao chép danh sách</button></div>
-      <div id="gmapLinks" class="note"></div></div>`;
-  html += seq.map((p, i) => {
-    const last = closed && i === seq.length - 1;
-    const d = i > 0 ? fmtKm(legs[i-1].d) + (roadOK ? ' · ' + fmtTime(legs[i-1].t) : '') : '';
-    return `<div class="stop" data-i="${i}"><span class="no ${i === 0 ? 's' : ''}">${i === 0 ? '🚩' : (last ? '↩' : i)}</span>
-      <div class="t"><b>${esc(i === 0 ? (p.label || 'Xuất phát') : (last ? 'Về điểm xuất phát' : p.name))}</b><small>${esc(i === 0 || last ? '' : [p.addr, p.prov].filter(Boolean).join(', '))}</small></div>
-      <div class="d">${d}</div></div>`;
-  }).join('');
-  $('#routeOut').innerHTML = html;
-  $('#exGmap').onclick = gmapLinks; $('#exCsv').onclick = exportCsv; $('#exCopy').onclick = copyList;
-}
-
-function gmapLinks() {
-  const { seq } = routeRes, STEP = 10, links = [];
-  const ll = p => p.lat.toFixed(6) + ',' + p.lng.toFixed(6);
-  for (let s = 0; s < seq.length - 1; s += STEP) {
-    const part = seq.slice(s, Math.min(s + STEP + 1, seq.length));
-    const wp = part.slice(1, -1).map(ll).join('|');
-    links.push(`https://www.google.com/maps/dir/?api=1&travelmode=driving&origin=${ll(part[0])}&destination=${ll(part[part.length - 1])}${wp ? '&waypoints=' + encodeURIComponent(wp) : ''}`);
-  }
-  if (links.length === 1) { window.open(links[0], '_blank'); return; }
-  $('#gmapLinks').innerHTML = 'Google Maps chỉ nhận tối đa 10 điểm mỗi lần nên lộ trình được chia thành: ' +
-    links.map((u, i) => `<a href="${u}" target="_blank" rel="noopener">Phần ${i + 1}</a>`).join(' · ');
-}
-function routeRows() {
-  const { seq, legs, closed } = routeRes;
-  return seq.map((p, i) => ({
-    stt: i, name: i === 0 ? 'XUẤT PHÁT: ' + (p.label || '') : (closed && i === seq.length - 1 ? 'Về điểm xuất phát' : p.name),
-    addr: p.addr || '', prov: p.prov || '', phone: p.phone || '', lat: p.lat, lng: p.lng, km: i ? (legs[i-1].d / 1000).toFixed(1) : ''
-  }));
-}
-function exportCsv() {
-  const q = v => '"' + String(v).replace(/"/g, '""') + '"';
-  const rows = [['STT', 'Tên', 'Địa chỉ', 'Tỉnh', 'SĐT', 'Vĩ độ', 'Kinh độ', 'Km từ điểm trước'], ...routeRows().map(r => [r.stt, r.name, r.addr, r.prov, r.phone, r.lat, r.lng, r.km])];
-  const blob = new Blob(['\uFEFF' + rows.map(r => r.map(q).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'lo-trinh.csv'; a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-}
-async function copyList() {
-  const t = routeRows().map(r => `${r.stt}. ${r.name}${r.addr ? ' - ' + r.addr : ''}${r.km ? ' (' + r.km + ' km)' : ''}`).join('\n');
-  try { await navigator.clipboard.writeText(t); $('#exCopy').textContent = 'Đã sao chép'; setTimeout(() => $('#exCopy').textContent = 'Sao chép danh sách', 1500); }
-  catch (e) { prompt('Sao chép danh sách:', t); }
-}
-
-/* ====== TAB ====== */
-function showTab(t) {
-  document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
-  document.querySelectorAll('.pane').forEach(p => p.classList.toggle('on', p.id === 'p-' + t));
-  if (t === 'prov') { renderProvGrid(); if (!provMode) setProvMode(true); }
-  else if (provMode) setProvMode(false);
-}
-
-/* ====== API DÙNG CHUNG (popup, bong bóng) ====== */
-const App = {
-  toggle(id) {
-    selected.has(id) ? selected.delete(id) : selected.add(id);
-    styleMarker(byId.get(id)); renderList(); map.closePopup();
-  },
-  setStartAgent(id) {
-    const a = byId.get(id); setStart({ lat: a.lat, lng: a.lng, label: a.name, agentId: id }, false); map.closePopup();
-  },
-  openProv(key) {
-    filter.prov = key; filter.dist = ''; filter.q = ''; $('#q').value = '';
-    syncCombos(); showTab('cust'); applyFilter(true);
-  }
-};
-
-function applyFilter(fit) {
-  renderList(); styleAll();
-  if (fit && filtering()) fitAgents(filtered());
-}
-
-/* ====== SỰ KIỆN ====== */
-document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
-$('#btnProvMode').onclick = () => showTab(provMode ? 'cust' : 'prov');
-$('#btnFit').onclick = () => { if (provMode) showTab('cust'); fitAgents(agents); };
-$('#q').oninput = e => { filter.q = e.target.value; applyFilter(false); };
-const cProv = makeCombo($('#cProv'), { allLabel: 'Tất cả tỉnh', getOpts: provOpts, onPick: v => { filter.prov = v; filter.dist = ''; refreshDist(); applyFilter(true); } });
-const cDist = makeCombo($('#cDist'), { allLabel: 'Tất cả huyện', getOpts: distOpts, onPick: v => { filter.dist = v; applyFilter(true); } });
-$('#provQ').oninput = () => renderProvGrid();
-$('#selAll').onclick = () => { filtered().forEach(a => selected.add(a.id)); renderList(); styleAll(); };
-$('#selNone').onclick = () => { selected.clear(); renderList(); styleAll(); };
-$('#btnGo').onclick = compute; $('#btnGo2').onclick = compute;
-
-$('#list').onclick = e => {
-  const it = e.target.closest('.item'); if (!it) return;
-  const id = +it.dataset.id, a = byId.get(id);
-  const act = e.target.closest('button')?.dataset.act;
-  if (act === 'start') { setStart({ lat: a.lat, lng: a.lng, label: a.name, agentId: id }); return; }
-  if (act === 'zoom') { map.setView([a.lat, a.lng], 15); markers.get(id)?.openPopup(); return; }
-  selected.has(id) ? selected.delete(id) : selected.add(id);
-  it.classList.toggle('sel', selected.has(id)); it.querySelector('input').checked = selected.has(id);
-  styleMarker(a); updateCounts();
-};
-$('#provgrid').onclick = e => {
-  const all = e.target.closest('[data-all]');
-  if (all) { agents.filter(a => a.pk === all.dataset.all).forEach(a => selected.add(a.id)); renderProvGrid(); drawBubbles(); styleAll(); updateCounts(); return; }
-  const c = e.target.closest('.pcard'); if (c) App.openProv(c.dataset.k);
-};
-$('#routeOut').onclick = e => {
-  const s = e.target.closest('.stop'); if (!s || !routeRes) return;
-  const p = routeRes.seq[+s.dataset.i]; map.setView([p.lat, p.lng], 15);
-};
-
-$('#btnGps').onclick = () => {
-  if (!navigator.geolocation) { alert('Trình duyệt không hỗ trợ định vị.'); return; }
-  navigator.geolocation.getCurrentPosition(
-    p => setStart({ lat: p.coords.latitude, lng: p.coords.longitude, label: 'Vị trí của tôi' }),
-    () => alert('Không lấy được vị trí. Hãy cho phép truy cập vị trí cho trang này.'), { enableHighAccuracy: true, timeout: 15000 });
-};
-$('#btnPick').onclick = () => { pickingZone = false; $('#hint').textContent = 'Bấm vào bản đồ để đặt điểm xuất phát'; pickingStart = true; $('#hint').style.display = 'block'; map.getContainer().style.cursor = 'crosshair'; };
-map.on('click', e => {
-  if (!pickingStart) return;
-  pickingStart = false; $('#hint').style.display = 'none'; map.getContainer().style.cursor = '';
-  setStart({ lat: e.latlng.lat, lng: e.latlng.lng, label: `Điểm chọn (${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)})` }, false);
-});
-$('#btnCoord').onclick = () => {
-  const ll = parseCombined($('#coordIn').value);
-  if (!ll) { alert('Nhập toạ độ dạng: 21.0285, 105.8542'); return; }
-  setStart({ ...ll, label: `Toạ độ (${ll.lat.toFixed(4)}, ${ll.lng.toFixed(4)})` });
-};
-$('#coordIn').onkeydown = e => { if (e.key === 'Enter') $('#btnCoord').click(); };
-
-/* ====== VÙNG BÁN KÍNH ====== */
-const ZCOL = ['#7c3aed', '#0891b2', '#c026d3', '#65a30d', '#db2777', '#ca8a04'];
-let zones = [], zoneSeq = 0, zoneFilter = false, pickingZone = false, zoneU = new Set(), zRaf = 0;
-const zoneLayer = L.layerGroup().addTo(map);
-const zIcon = (z, i) => L.divIcon({ className: '', html: `<div class="zpin" style="background:${z.color}">${i + 1}</div>`, iconSize: [28, 28], iconAnchor: [14, 14] });
-const zoneUnion = () => { const u = new Set(); zones.forEach(z => z.ids.forEach(i => u.add(i))); return u; };
-function zoneCalc(z) { z.ids = new Set(); const R = z.r * 1000; for (const a of agents) if (haversine(z, a) <= R) z.ids.add(a.id); }
-function zoneBreak(z) {
-  const m = new Map();
-  z.ids.forEach(id => { const a = byId.get(id); m.set(a.prov, (m.get(a.prov) || 0) + 1); });
-  return [...m.entries()].sort((a, b) => b[1] - a[1]);
-}
-function fillZoneNums() {
-  zones.forEach(z => {
-    const c = $('#zc-' + z.id); if (!c) return;
-    c.textContent = z.ids.size;
-    const br = zoneBreak(z);
-    $('#zb-' + z.id).textContent = br.length
-      ? br.slice(0, 6).map(([p, n]) => `${p} ${n}`).join(' · ') + (br.length > 6 ? ` · +${br.length - 6} tỉnh` : '')
-      : 'Không có đại lý nào trong vùng này';
-    const sel = [...z.ids].filter(id => selected.has(id)).length;
-    $('#zs-' + z.id).textContent = sel ? `(đã chọn ${sel})` : '';
-    if (z.open) renderZoneList(z);
-  });
-  $('#zsum').textContent = zones.length
-    ? `Tổng ${zoneU.size} đại lý (không trùng) trong ${zones.length} vùng`
-    : 'Chưa có vùng nào. Hãy cắm điểm trên bản đồ hoặc nhập toạ độ.';
-  $('#bZone').textContent = zoneU.size;
-}
-const zkey = z => z.lat.toFixed(5) + ',' + z.lng.toFixed(5);
-function zoneRows(z) {
-  const road = z.road && z.roadKey === zkey(z) ? z.road : null;
-  const rows = [...z.ids].map(id => { const a = byId.get(id); return { a, s: haversine(z, a), r: road ? road.get(id) : null }; });
-  const est = x => (x.r && x.r.d != null) ? x.r.d : (x.r ? 1e12 : x.s * 1.3);
-  rows.sort((x, y) => est(x) - est(y));
-  const all = !!road && rows.every(x => x.r);
-  return { rows, road, all };
-}
-function renderZoneList(z) {
-  const el = $('#zl-' + z.id); if (!el) return;
-  const { rows, road, all } = zoneRows(z), LIM = 300;
-  const have = road ? rows.filter(x => x.r).length : 0;
-  const msg = z.msg || (all ? 'Quãng đường bộ từ điểm cắm, sắp từ gần đến xa.' : (z.busy ? `Đang tính đường bộ… ${have}/${rows.length}` : 'Đang hiển thị đường chim bay.'));
-  const head = `<div class="zlh"><button class="small" data-act="road" ${z.busy ? 'disabled' : ''}>🛣️ Tính lại đường bộ</button><button class="small" data-act="csv">Tải CSV</button></div><div class="note" style="margin:4px 0 6px">${esc(msg)}</div>`;
-  const body = rows.length ? rows.slice(0, LIM).map(x => {
-    const ok = x.r && x.r.d != null;
-    const sub = ok ? fmtTime(x.r.t) + ' · bay ' + fmtKm(x.s) : (x.r ? 'không có đường' : (z.busy ? 'chim bay · đang tính…' : 'chim bay'));
-    return `<div class="zrow" data-id="${x.a.id}"><input type="checkbox" ${selected.has(x.a.id) ? 'checked' : ''} aria-label="Chọn ${esc(x.a.name)}">
-      <div class="t"><b>${esc(x.a.name)}</b><small>${esc([x.a.addr, x.a.dist, x.a.prov].filter(Boolean).join(', '))}</small></div>
-      <div class="d"><b>${ok || !x.r ? (ok ? '' : '~') + fmtKm(ok ? x.r.d : x.s) : '—'}</b><small>${sub}</small></div></div>`;
-  }).join('') : '<div class="note">Không có đại lý nào trong vùng này.</div>';
-  el.innerHTML = head + body + (rows.length > LIM ? `<div class="note">Hiện ${LIM}/${rows.length} đại lý gần nhất. Bấm “Tải CSV” để xem đủ.</div>` : '');
-}
-/* Tính đường bộ dần dần: gần trước, xa sau; mỗi đợt xong là cập nhật danh sách ngay */
-async function zoneRoad(z) {
-  if (z.busy) { z.again = true; return; }
-  z.busy = true; z.msg = '';
-  try {
-    for (let guard = 0; guard < 200; guard++) {
-      const key = zkey(z);
-      if (!z.road || z.roadKey !== key) { z.road = new Map(); z.roadKey = key; }
-      const todo = [...z.ids].filter(id => !z.road.has(id)).map(id => byId.get(id))
-        .sort((a, b) => haversine(z, a) - haversine(z, b)).slice(0, 40);
-      if (!todo.length) break;
-      renderZoneList(z);
-      const j = await fj(`${OSRM}/table/v1/driving/${lonlat([z, ...todo])}?sources=0&destinations=${todo.map((_, k) => k + 1).join(';')}&annotations=distance,duration`);
-      if (j.code !== 'Ok') throw new Error(j.code || 'lỗi');
-      if (zkey(z) !== key) continue;   // ghim đã bị dời trong lúc tính
-      todo.forEach((a, k) => z.road.set(a.id, { d: j.distances[0][k], t: j.durations[0][k] }));
+    function generateComparisonTable() {
+        const selectedIds = Array.from(document.querySelectorAll('.compare-checkbox:checked')).map(cb => cb.value);
+        if (selectedIds.length === 0) return alert("Chọn ít nhất một kho!");
+        const head = document.getElementById('compare-grid-head'), body = document.getElementById('compare-grid-body');
+        let headRow = '<tr>', bodyRow = '<tr>';
+        selectedIds.forEach(id => {
+            const w = warehouses.find(wh => wh.id === id);
+            const inR = dealers.filter(d => w.latlng.distanceTo(d.latlng) <= w.radius).sort((a,b) => b.ds - a.ds);
+            const sumDS = inR.reduce((a, b) => a + b.ds, 0);
+            headRow += `<th><div style="font-size:14px;">${w.name}</div><div style="font-size:10px; opacity:0.9; margin-top:4px;">R: ${w.radius/1000}km | KH: ${inR.length}</div><div style="font-size:13px; color:#fff; background:rgba(0,0,0,0.2); padding:4px; border-radius:4px; margin-top:6px;">${sumDS.toLocaleString()}đ</div></th>`;
+            let custList = inR.map(d => `<div class="cust-list-item"><span>${d.ten}</span><b>${d.ds.toLocaleString()}đ</b></div>`).join('');
+            bodyRow += `<td><div style="max-height:500px; overflow-y:auto;">${custList || '<div style="padding:10px; color:#999; text-align:center;">Trống</div>'}</div></td>`;
+        });
+        headRow += '</tr>'; bodyRow += '</tr>';
+        head.innerHTML = headRow; body.innerHTML = bodyRow;
+        document.getElementById('compare-modal').style.display = 'flex';
+        document.getElementById('modal-backdrop').style.display = 'block';
     }
-    z.err = false;
-  } catch (e) {
-    z.err = true;
-    z.msg = 'Không lấy được đường bộ (' + (e.message || e) + '). Đang hiển thị đường chim bay; bấm “Tính lại đường bộ” để thử lại.';
-  } finally {
-    z.busy = false; renderZoneList(z);
-  }
-  if (z.again) { z.again = false; zoneRoad(z); }
-}
-function zoneAuto(z) {
-  if (!z.open || z.err) return;
-  clearTimeout(z.tm); z.tm = setTimeout(() => zoneRoad(z), 500);
-}
-function zoneCsv(z) {
-  const { rows } = zoneRows(z);
-  const q = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
-  const out = [['STT', 'Tên', 'Địa chỉ', 'Tỉnh (cũ)', 'Huyện (cũ)', 'SĐT', 'Vĩ độ', 'Kinh độ', 'Km chim bay', 'Km đường bộ', 'Phút lái xe']];
-  rows.forEach((x, i) => out.push([i + 1, x.a.name, x.a.addr, x.a.prov, x.a.dist, x.a.phone, x.a.lat, x.a.lng, (x.s / 1000).toFixed(2),
-    x.r && x.r.d != null ? (x.r.d / 1000).toFixed(2) : '', x.r && x.r.t != null ? Math.round(x.r.t / 60) : '']));
-  const blob = new Blob(['\uFEFF' + out.map(r => r.map(q).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'vung-ban-kinh.csv'; a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-}
-function renderZones() {
-  $('#zoneList').innerHTML = zones.map((z, i) => `
-    <div class="zcard" data-z="${z.id}" style="border-left-color:${z.color}">
-      <div class="zh"><b>Điểm ${i + 1}</b><small>${z.lat.toFixed(4)}, ${z.lng.toFixed(4)}</small><button data-act="del" title="Xoá vùng">✕</button></div>
-      <div class="zr"><input type="range" min="1" max="200" step="1" value="${z.r}" data-act="rng" aria-label="Bán kính"><input type="number" min="0.1" step="0.5" value="${z.r}" data-act="num"><span>km</span></div>
-      <div class="zn"><span class="big" id="zc-${z.id}">0</span><span>đại lý trong vòng bán kính</span><small id="zs-${z.id}" style="color:var(--route)"></small></div>
-      <div class="zb" id="zb-${z.id}"></div>
-      <div class="zbtns">
-        <button class="small" data-act="sel">Chọn hết</button>
-        <button class="small" data-act="unsel">Bỏ chọn</button>
-        <button class="small" data-act="start">🚩 Làm điểm xuất phát</button>
-        <button class="small" data-act="fit">Xem</button>
-        <button class="small" data-act="list">${z.open ? '▲ Ẩn danh sách' : '📋 Xem danh sách'}</button>
-      </div>
-      <div class="zlist" id="zl-${z.id}" style="display:${z.open ? 'block' : 'none'}"></div>
-    </div>`).join('');
-  fillZoneNums();
-}
-function zoneRefresh() {
-  zones.forEach((z, i) => {
-    z.color = ZCOL[i % ZCOL.length]; zoneCalc(z);
-    z.circle.setStyle({ color: z.color, fillColor: z.color }); z.circle.setRadius(z.r * 1000);
-    z.marker.setIcon(zIcon(z, i));
-    if (z.roadKey && z.roadKey !== zkey(z)) { z.road = null; z.msg = ''; }
-  });
-  zoneU = zoneUnion();
-  renderZones(); styleAll();
-  if (zoneFilter) renderList();
-  zones.forEach(zoneAuto);
-}
-function zoneSoft() {
-  if (zRaf) return;
-  zRaf = requestAnimationFrame(() => { zRaf = 0; zoneU = zoneUnion(); fillZoneNums(); styleAll(); if (zoneFilter) renderList(); });
-}
-function addZone(lat, lng) {
-  const r = parseFloat($('#zR').value) > 0 ? parseFloat($('#zR').value) : 10;
-  const z = { id: ++zoneSeq, lat, lng, r, color: ZCOL[zones.length % ZCOL.length], ids: new Set() };
-  z.circle = L.circle([lat, lng], { radius: r * 1000, color: z.color, weight: 2, fillColor: z.color, fillOpacity: .08, interactive: false }).addTo(zoneLayer);
-  z.marker = L.marker([lat, lng], { draggable: true, icon: zIcon(z, zones.length), zIndexOffset: 900, title: 'Kéo để dời vùng' }).addTo(zoneLayer);
-  z.marker.on('drag', e => { const q = e.target.getLatLng(); z.lat = q.lat; z.lng = q.lng; z.circle.setLatLng(q); });
-  z.marker.on('dragend', () => zoneRefresh());
-  zones.push(z);
-  zoneRefresh();
-  map.fitBounds(z.circle.getBounds(), { padding: [40, 40] });
-  showTab('zone');
-}
-function removeZone(z) {
-  zoneLayer.removeLayer(z.circle); zoneLayer.removeLayer(z.marker);
-  zones = zones.filter(x => x !== z); zoneRefresh();
-}
-const hideHint = () => { $('#hint').style.display = 'none'; map.getContainer().style.cursor = ''; };
 
-$('#zPick').onclick = () => {
-  pickingStart = false; pickingZone = true;
-  $('#hint').textContent = 'Bấm vào bản đồ để cắm điểm (Esc để huỷ)';
-  $('#hint').style.display = 'block'; map.getContainer().style.cursor = 'crosshair';
-};
-map.on('click', e => { if (!pickingZone) return; pickingZone = false; hideHint(); addZone(e.latlng.lat, e.latlng.lng); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && (pickingZone || pickingStart)) { pickingZone = pickingStart = false; hideHint(); } });
-$('#zAdd').onclick = () => {
-  const ll = parseCombined($('#zCoord').value);
-  if (!ll) { alert('Nhập toạ độ dạng: 21.0285, 105.8542 (hoặc dán link Google Maps)'); return; }
-  addZone(ll.lat, ll.lng);
-};
-$('#zCoord').onkeydown = e => { if (e.key === 'Enter') $('#zAdd').click(); };
-$('#zGps').onclick = () => {
-  if (!navigator.geolocation) { alert('Trình duyệt không hỗ trợ định vị.'); return; }
-  navigator.geolocation.getCurrentPosition(p => addZone(p.coords.latitude, p.coords.longitude),
-    () => alert('Không lấy được vị trí. Hãy cho phép truy cập vị trí cho trang này.'), { enableHighAccuracy: true, timeout: 15000 });
-};
-$('#zFilter').onchange = e => { zoneFilter = e.target.checked; renderList(); styleAll(); };
-$('#zSelAll').onclick = () => { zoneU.forEach(id => selected.add(id)); renderList(); styleAll(); fillZoneNums(); };
-$('#zClear').onclick = () => { zones.slice().forEach(z => { zoneLayer.removeLayer(z.circle); zoneLayer.removeLayer(z.marker); }); zones = []; zoneRefresh(); };
-document.querySelector('[data-tab="zone"]').addEventListener('click', fillZoneNums);
+    function updateStats() {
+        const compList = document.getElementById('company-warehouse-list'), userList = document.getElementById('user-warehouse-list');
+        compList.innerHTML = ''; userList.innerHTML = '';
+        warehouses.forEach(w => {
+            const inR = dealers.filter(d => w.latlng.distanceTo(d.latlng) <= w.radius).sort((a,b) => b.ds - a.ds);
+            const sumDS = inR.reduce((a, b) => a + b.ds, 0);
+            const html = `<div class="stats-box" style="border-left-color: ${w.isCompany ? '#2c3e50' : '#c0392b'}">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-weight:bold; font-size:12px;">${w.name}</span>
+                        <div style="display:flex; align-items:center;">
+                            <span style="font-size:10px; color:#666;">R:</span>
+                            <input type="number" class="radius-inline-input" value="${w.radius/1000}" onchange="changeRadius('${w.id}', this.value)">
+                            ${!w.isCompany ? `<button onclick="removeWarehouse('${w.id}')" style="margin-left:8px; border:none; color:red; font-size:10px; cursor:pointer; background:none;">[X]</button>` : ''}
+                            <span style="cursor:pointer; color:var(--primary); font-size:18px; margin-left:8px;" onclick="toggleTable('${w.id}')">▾</span>
+                        </div>
+                    </div>
+                    <div style="font-size:11px; margin-top:4px;">Tổng Doanh số: <b style="color:#d63031">${sumDS.toLocaleString()}đ</b></div>
+                    <table class="dealer-table" id="tbl-${w.id}">
+                        <thead><tr><th>Tên Khách hàng</th><th>Doanh số thực (đ)</th><th>Km</th></tr></thead>
+                        <tbody>
+                            ${inR.map(d => `<tr><td>${d.ten}</td><td style="color:var(--blue); font-weight:bold;">${d.ds.toLocaleString()}đ</td><td class="dist-cell" data-lat="${d.lat}" data-lng="${d.lng}">...</td></tr>`).join('') || '<tr><td colspan="3">Trống</td></tr>'}
+                        </tbody>
+                    </table>
+                </div>`;
+            if (w.isCompany) compList.innerHTML += html; else userList.innerHTML += html;
+        });
+    }
 
-$('#zoneList').addEventListener('input', e => {
-  const act = e.target.dataset.act; if (act !== 'rng' && act !== 'num') return;
-  const card = e.target.closest('.zcard'), z = zones.find(x => x.id === +card.dataset.z); if (!z) return;
-  const v = parseFloat(e.target.value); if (!(v > 0)) return;
-  z.r = v; z.circle.setRadius(v * 1000);
-  card.querySelector('[data-act=rng]').value = v;
-  if (act === 'rng') card.querySelector('[data-act=num]').value = v;
-  zoneCalc(z); zoneSoft(); zoneAuto(z);
-});
-$('#zoneList').addEventListener('click', e => {
-  const row = e.target.closest('.zrow');
-  if (row && !e.target.closest('button')) {
-    const id = +row.dataset.id, a = byId.get(id);
-    if (e.target.tagName === 'INPUT') { selected.has(id) ? selected.delete(id) : selected.add(id); renderList(); styleAll(); fillZoneNums(); }
-    else { map.setView([a.lat, a.lng], 15); markers.get(id)?.openPopup(); }
-    return;
-  }
-  const b = e.target.closest('button'); if (!b) return;
-  const card = b.closest('.zcard'), z = zones.find(x => x.id === +card.dataset.z); if (!z) return;
-  const i = zones.indexOf(z);
-  if (b.dataset.act === 'del') removeZone(z);
-  else if (b.dataset.act === 'sel') { z.ids.forEach(id => selected.add(id)); renderList(); styleAll(); fillZoneNums(); }
-  else if (b.dataset.act === 'unsel') { z.ids.forEach(id => selected.delete(id)); renderList(); styleAll(); fillZoneNums(); }
-  else if (b.dataset.act === 'start') setStart({ lat: z.lat, lng: z.lng, label: `Điểm ${i + 1} (vùng ${z.r} km)` });
-  else if (b.dataset.act === 'fit') map.fitBounds(z.circle.getBounds(), { padding: [40, 40] });
-  else if (b.dataset.act === 'list') { z.open = !z.open; renderZones(); if (z.open) { z.err = false; zoneRoad(z); } }
-  else if (b.dataset.act === 'road') { z.err = false; zoneRoad(z); }
-  else if (b.dataset.act === 'csv') zoneCsv(z);
-});
-renderZones();
+    function toggleGroup(id) { const el = document.getElementById(id); const ar = document.getElementById('arrow-'+id); if (el.style.display === "block") { el.style.display = "none"; ar.innerText = "◀"; } else { el.style.display = "block"; ar.innerText = "▼"; } }
+    async function toggleTable(id) { const tbl = document.getElementById(`tbl-${id}`); tbl.style.display = (tbl.style.display === "table") ? "none" : "table"; if (tbl.style.display === "table") { const wh = warehouses.find(w => w.id === id); const cells = tbl.querySelectorAll('.dist-cell'); for (let cell of cells) if (cell.innerText === "...") { const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${wh.latlng.lng},${wh.latlng.lat};${cell.dataset.lng},${cell.dataset.lat}?overview=false`); const d = await r.json(); cell.innerText = d.code === 'Ok' ? (d.routes[0].distance / 1000).toFixed(1) + "km" : "Err"; } } }
+    function startCompareSelection() { const overlay = document.getElementById('selection-overlay'); const container = document.getElementById('selection-list-container'); overlay.style.display = 'block'; container.innerHTML = warehouses.map(w => `<div style="display:flex; align-items:center; margin-bottom:5px;"><input type="checkbox" class="compare-checkbox" value="${w.id}" id="chk-${w.id}"><label for="chk-${w.id}" style="margin-left:8px; font-size:12px; cursor:pointer;">${w.name}</label></div>`).join(''); }
+    function cancelCompare() { document.getElementById('selection-overlay').style.display = 'none'; }
+    function closeCompareModal() { document.getElementById('compare-modal').style.display = 'none'; document.getElementById('modal-backdrop').style.display = 'none'; }
+    function changeRadius(id, val) { const wh = warehouses.find(w => w.id === id); if (wh && val >= 0) { wh.radius = parseFloat(val) * 1000; wh.circle.setRadius(wh.radius); updateStats(); saveUserWarehouses(); } }
+    function removeWarehouse(id) { if(confirm("Xóa?")) { const wh = warehouses.find(w => w.id === id); map.removeLayer(wh.marker); map.removeLayer(wh.circle); warehouses = warehouses.filter(w => w.id !== id); updateStats(); saveUserWarehouses(); } }
+    function saveUserWarehouses() { localStorage.setItem('savedWarehousesLog', JSON.stringify(warehouses.filter(w => !w.isCompany).map(w => ({ lat: w.latlng.lat, lng: w.latlng.lng, radius: w.radius/1000, name: w.name })))); }
+    
+    // --- THUẬT TOÁN ĐA GIÁC HÌNH HỌC KHÔNG GIAN ---
+    function isPointInGeoJSON(lat, lng, geoLayer) {
+        let inside = false;
+        geoLayer.eachLayer(layer => {
+            if (inside) return; 
+            if (typeof layer.getBounds === 'function') {
+                if (!layer.getBounds().contains([lat, lng])) return;
+            }
+            if (typeof layer.getLatLngs === 'function') {
+                let parts = layer.getLatLngs();
+                if (parts.length === 1 && Array.isArray(parts[0])) parts = parts[0];
+                if (Array.isArray(parts) && typeof parts[0]?.lat === 'undefined' && Array.isArray(parts[0])) {
+                    parts.forEach(subPart => {
+                        if(inside) return;
+                        inside = checkRayCasting([lat, lng], subPart);
+                    });
+                } else {
+                    inside = checkRayCasting([lat, lng], parts);
+                }
+            }
+        });
+        return inside;
+    }
 
-/* ====== NẠP DỮ LIỆU ====== */
-function setData(text, origin) {
-  const res = buildAgents(parseCSV(text));
-  agents = res.agents; byId = new Map(agents.map(a => [a.id, a]));
-  selected.clear(); routeRes = null; routeLayer.clearLayers();
-  filter.q = filter.prov = filter.dist = ''; $('#q').value = '';
-  const st = $('#status');
-  if (!agents.length) {
-    st.className = 'err';
-    st.textContent = 'Đọc được bảng nhưng không tìm thấy toạ độ nào. Kiểm tra lại cột định vị (dạng “vĩ độ, kinh độ” hoặc link Google Maps).';
-  } else {
-    st.className = '';
-    const x = res.stats, parts = [];
-    if (x.col) parts.push(`${x.col} theo cột tỉnh cũ`);
-    if (x.map) parts.push(`${x.map} đối chiếu bảng sáp nhập`);
-    if (x.addr) parts.push(`${x.addr} theo tên tỉnh trong địa chỉ`);
-    if (x.near) parts.push(`${x.near} theo đại lý lân cận`);
-    if (x.unk) parts.push(`${x.unk} chưa rõ`);
-    st.textContent = `Đã nạp ${agents.length} đại lý (${origin})` + (res.skipped ? `, bỏ qua ${res.skipped} dòng không có toạ độ` : '') +
-      `. Tỉnh/huyện cũ: ${parts.join(', ')}.` +
-      (MAPIDX ? '' : ' ⚠ Chưa nạp được bảng đối chiếu sáp nhập nên chưa tách được tỉnh cũ/huyện cũ của các tỉnh đã gộp (xem hướng dẫn thêm file mapping.json).');
-    if (!MAPIDX) st.className = 'err';
-  }
-  $('#colinfo').textContent = res.used ? 'Cột nhận diện: ' + res.used : '';
-  buildMarkers(); syncCombos(); renderList(); renderProvGrid(); zones.forEach(z => { z.road = null; z.roadKey = ''; z.msg = ''; }); zoneRefresh();
-  if (provMode) drawBubbles();
-  fitAgents(agents);
-}
-async function load(url) {
-  const st = $('#status'); st.className = ''; st.textContent = 'Đang tải danh sách đại lý…';
-  try {
-    const r = await fetch(toCsvUrl(url), { cache: 'no-store' });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const t = await r.text();
-    if (/^\s*<(!doctype|html)/i.test(t)) throw new Error('Link không trả về dữ liệu CSV');
-    store.set('sheetUrl', url);
-    st.textContent = 'Đang tải bảng đối chiếu sáp nhập…';
-    await mapPromise;
-    setData(t, 'Google Sheet');
-  } catch (e) {
-    st.className = 'err';
-    st.textContent = 'Không tải được từ Google Sheet (' + (e.message || e) + '). Hãy kiểm tra bảng đã “Xuất bản lên web”, hoặc dùng “Mở file CSV…” trong mục Nguồn dữ liệu.';
-    $('.src').open = true;
-  }
-}
-$('#sheetUrl').value = store.get('sheetUrl') || DEFAULT_SHEET;
-$('#reload').onclick = () => load($('#sheetUrl').value);
-$('#uploadBtn').onclick = () => $('#file').click();
-$('#file').onchange = e => {
-  const f = e.target.files[0]; if (!f) return;
-  const rd = new FileReader(); rd.onload = async () => { await mapPromise; setData(rd.result, 'file ' + f.name); }; rd.readAsText(f, 'utf-8');
-};
+    function checkRayCasting(point, polyPoints) {
+        let x = point[0], y = point[1];
+        let inside = false;
+        for (let i = 0, j = polyPoints.length - 1; i < polyPoints.length; j = i++) {
+            let xi = polyPoints[i].lat, yi = polyPoints[i].lng;
+            let xj = polyPoints[j].lat, yj = polyPoints[j].lng;
+            let intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+            if (intersect) inside = !inside;
+        }
+        return inside;
+    }
 
-renderStart();
-const mapPromise = loadMapping();
-load($('#sheetUrl').value);
+    // Lọc danh sách và thống kê doanh số các đại lý nằm trong khu vực hình học
+    function calculateZoneMetrics(geoLayer) {
+        let dealersInside = [];
+        let totalDS = 0;
+        dealers.forEach(d => {
+            if (isPointInGeoJSON(d.lat, d.lng, geoLayer)) {
+                dealersInside.push(d);
+                totalDS += d.ds;
+            }
+        });
+        // Sắp xếp đại lý có doanh số lớn nhất lên đầu bảng
+        dealersInside.sort((a, b) => b.ds - a.ds);
+        return { dealersInside, count: dealersInside.length, totalDS };
+    }
+
+    function recalculateAllZonesData() {
+        activeZones.forEach(zone => {
+            const metrics = calculateZoneMetrics(zone.layer);
+            zone.dealersInside = metrics.dealersInside;
+            zone.count = metrics.count;
+            zone.totalDS = metrics.totalDS;
+        });
+        renderAreaZoneList();
+    }
+
+    // --- TÍNH NĂNG: SOI NHIỀU KHU VỰC + QUẢN LÝ TỔNG HỢP + BẢNG ĐẠI LÝ SỔ XUỐNG ---
+    async function searchArea() {
+        const input = document.getElementById('areaSearchInput').value.trim();
+        if (!input) return;
+        
+        if (activeZones.some(z => z.name.toLowerCase() === input.toLowerCase())) {
+            alert("Khu vực này đang được hiển thị viền!");
+            return;
+        }
+
+        const resp = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(input + ", Vietnam")}&format=json&polygon_geojson=1&limit=1`);
+        const data = await resp.json();
+        
+        if (data.length > 0) {
+            const currentColor = BORDER_COLORS[colorIndex % BORDER_COLORS.length];
+            colorIndex++;
+
+            const geoLayer = L.geoJSON(data[0].geojson, { 
+                style: { color: currentColor, weight: 3.5, fillOpacity: 0.04, fillColor: currentColor }, 
+                interactive: false 
+            }).addTo(highlightLayer);
+
+            const zoneId = "zone-" + Date.now() + Math.random().toString(36).substr(2, 5);
+            const zoneName = data[0].display_name.split(',')[0];
+
+            const metrics = calculateZoneMetrics(geoLayer);
+
+            activeZones.push({
+                id: zoneId,
+                name: zoneName,
+                color: currentColor,
+                layer: geoLayer,
+                dealersInside: metrics.dealersInside,
+                count: metrics.count,
+                totalDS: metrics.totalDS
+            });
+
+            renderAreaZoneList();
+            autoFitAvailableZones();
+            
+            document.getElementById('areaSearchInput').value = '';
+        } else {
+            alert("Không tìm thấy khu vực: " + input);
+        }
+    }
+
+    function renderAreaZoneList() {
+        const container = document.getElementById('areaZoneList');
+        if (activeZones.length === 0) { container.innerHTML = ''; return; }
+
+        container.innerHTML = activeZones.map(zone => {
+            // Khởi tạo bảng danh sách đại lý nội vùng
+            const rowsHtml = zone.dealersInside.map(d => `
+                <tr>
+                    <td style="font-weight:600; color:var(--dark);">${d.ten}</td>
+                    <td style="color:var(--blue); font-weight:bold; text-align:right;">${d.ds.toLocaleString()}đ</td>
+                </tr>
+            `).join('') || '<tr><td colspan="2" style="color:#999; text-align:center; padding:5px;">Không có đại lý nào</td></tr>';
+
+            return `
+                <div style="background:#f1f2f6; padding:8px 10px; border-radius:6px; border-left:4px solid ${zone.color}; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div style="display:flex; flex-direction:column; gap:2px; text-align: left;">
+                            <span style="font-weight:bold; color:var(--dark); max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${zone.name}</span>
+                            <span style="font-size:10px; color:#555;">Thống kê: <b style="color:var(--blue);">${zone.count} ĐL</b> | Doanh số: <b style="color:var(--primary);">${zone.totalDS.toLocaleString()}đ</b></span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <!-- Mũi tên điều hướng bật tắt danh sách -->
+                            <span id="arrow-${zone.id}" style="cursor:pointer; color:var(--primary); font-size:16px; font-weight:bold; padding:2px 4px;" onclick="toggleZoneTable('${zone.id}')">◀</span>
+                            <button onclick="removeSingleZone('${zone.id}')" style="border:none; color:#ff1744; font-weight:bold; background:none; cursor:pointer; padding:2px 5px; font-size:12px;">[X]</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Bảng chứa danh sách tên đại lý đổ xuống -->
+                    <table class="zone-dealer-table" id="ztbl-${zone.id}">
+                        <thead>
+                            <tr>
+                                <th>Tên Đại Lý</th>
+                                <th style="text-align:right;">Doanh Số</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rowsHtml}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // Hàm điều khiển ẩn/hiện danh sách đại lý của từng khu vực
+    function toggleZoneTable(id) {
+        const tbl = document.getElementById(`ztbl-${id}`);
+        const arrow = document.getElementById(`arrow-${id}`);
+        if (tbl.style.display === "table") {
+            tbl.style.display = "none";
+            arrow.innerText = "◀";
+        } else {
+            tbl.style.display = "table";
+            arrow.innerText = "▼";
+        }
+    }
+
+    function removeSingleZone(id) {
+        const targetZone = activeZones.find(z => z.id === id);
+        if (targetZone) {
+            highlightLayer.removeLayer(targetZone.layer);
+            activeZones = activeZones.filter(z => z.id !== id);
+            renderAreaZoneList();
+            autoFitAvailableZones();
+        }
+    }
+
+    function autoFitAvailableZones() {
+        if (activeZones.length > 0) {
+            const boundsArray = activeZones.map(z => z.layer.getBounds());
+            const groupBounds = L.latLngBounds(boundsArray);
+            map.fitBounds(groupBounds, { padding: [40, 40] });
+        } else {
+            map.setView([20.8, 106.0], 9);
+        }
+    }
+
+    // --- TÍNH NĂNG: TÌM KIẾM ĐẠI LÝ & ĐỊNH VỊ NHANH ---
+    function onDealerSearchInput(value) {
+        const container = document.getElementById('dealerSuggestions');
+        if (!value.trim()) { container.style.display = 'none'; return; }
+        
+        const keyword = value.toLowerCase().trim();
+        const matched = dealers.filter(d => d.ten.toLowerCase().includes(keyword)).slice(0, 10);
+        
+        if (matched.length > 0) {
+            container.innerHTML = matched.map(d => `
+                <div class="suggestion-item" onclick="focusDealer('${d.ten.replace(/'/g, "\\'")}', ${d.lat}, ${d.lng})">
+                    <b>${d.ten}</b> - <span style="color:var(--primary)">${d.ds.toLocaleString()}đ</span>
+                </div>
+            `).join('');
+            container.style.display = 'block';
+        } else {
+            container.innerHTML = '<div class="suggestion-item" style="color:#999; text-align:center;">Không tìm thấy đại lý</div>';
+            container.style.display = 'block';
+        }
+    }
+
+    function focusDealer(name, lat, lng) {
+        document.getElementById('dealerSearchInput').value = name;
+        document.getElementById('dealerSuggestions').style.display = 'none';
+        
+        map.setView([lat, lng], 14);
+        
+        const marker = dealerMarkersMap[name.toLowerCase().trim()];
+        if (marker) {
+            marker.openTooltip();
+        }
+    }
+
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.search-container')) {
+            document.getElementById('dealerSuggestions').style.display = 'none';
+        }
+    });
+
+    function toggleSidebar() { const sb = document.getElementById('sidebar'), btn = document.getElementById('floating-toggle'); sb.classList.toggle('hidden'); btn.innerText = sb.classList.contains('hidden') ? "☰" : "✖"; }
+    function addWarehouseByCoords() { const input = document.getElementById('coordInput').value; const parts = input.split(/[, ]+/); if (parts.length < 2) return alert("Lat, Lng"); const lat = parseFloat(parts[0]), lng = parseFloat(parts[1]); const name = prompt("Tên kho:", "Kho tọa độ " + (warehouses.filter(w=>!w.isCompany).length + 1)); if (name) { addWarehouse(L.latLng(lat, lng), 5, name, false); map.setView([lat, lng], 12); } }
+    function resetUserWarehouses() { if (confirm("Xóa sạch?")) { warehouses.forEach(w => { if (!w.isCompany) { map.removeLayer(w.marker); map.removeLayer(w.circle); } }); warehouses = warehouses.filter(w => w.isCompany); localStorage.removeItem('savedWarehousesLog'); updateStats(); } }
 </script>
 </body>
 </html>
