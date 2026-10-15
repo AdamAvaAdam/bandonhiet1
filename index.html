@@ -115,6 +115,17 @@ button.small{padding:4px 8px;font-size:12px}
 .zcard .zb{font-size:12px;color:var(--muted);margin:4px 0 8px}
 .zcard .zbtns{display:flex;gap:6px;flex-wrap:wrap}
 #zsum{font-weight:600;margin-bottom:6px}
+.zlist{margin-top:10px;border-top:1px dashed var(--line);padding-top:8px}
+.zlh{display:flex;gap:6px;flex-wrap:wrap}
+.zrow{display:flex;align-items:flex-start;gap:8px;padding:7px 2px;border-bottom:1px solid #ece9e1;cursor:pointer}
+.zrow:hover{background:#f4f2ec}
+.zrow input{margin-top:3px;accent-color:var(--sel)}
+.zrow .t{flex:1;min-width:0}
+.zrow .t b{display:block;font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.zrow .t small{display:block;color:var(--muted);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.zrow .d{text-align:right;white-space:nowrap}
+.zrow .d b{display:block;font-weight:600;color:var(--teal);font-size:13px}
+.zrow .d small{color:var(--muted);font-size:11px}
 /* map overlay */
 .mapbtn{position:absolute;z-index:500;top:12px;right:12px;display:flex;gap:6px}
 .mapbtn button{box-shadow:0 1px 4px rgba(0,0,0,.2)}
@@ -957,11 +968,76 @@ function fillZoneNums() {
       : 'Không có đại lý nào trong vùng này';
     const sel = [...z.ids].filter(id => selected.has(id)).length;
     $('#zs-' + z.id).textContent = sel ? `(đã chọn ${sel})` : '';
+    if (z.open) renderZoneList(z);
   });
   $('#zsum').textContent = zones.length
     ? `Tổng ${zoneU.size} đại lý (không trùng) trong ${zones.length} vùng`
     : 'Chưa có vùng nào. Hãy cắm điểm trên bản đồ hoặc nhập toạ độ.';
   $('#bZone').textContent = zoneU.size;
+}
+const zkey = z => z.lat.toFixed(5) + ',' + z.lng.toFixed(5);
+function zoneRows(z) {
+  const road = z.road && z.roadKey === zkey(z) ? z.road : null;
+  const rows = [...z.ids].map(id => { const a = byId.get(id); return { a, s: haversine(z, a), r: road ? road.get(id) : null }; });
+  const est = x => (x.r && x.r.d != null) ? x.r.d : (x.r ? 1e12 : x.s * 1.3);
+  rows.sort((x, y) => est(x) - est(y));
+  const all = !!road && rows.every(x => x.r);
+  return { rows, road, all };
+}
+function renderZoneList(z) {
+  const el = $('#zl-' + z.id); if (!el) return;
+  const { rows, road, all } = zoneRows(z), LIM = 300;
+  const have = road ? rows.filter(x => x.r).length : 0;
+  const msg = z.msg || (all ? 'Quãng đường bộ từ điểm cắm, sắp từ gần đến xa.' : (z.busy ? `Đang tính đường bộ… ${have}/${rows.length}` : 'Đang hiển thị đường chim bay.'));
+  const head = `<div class="zlh"><button class="small" data-act="road" ${z.busy ? 'disabled' : ''}>🛣️ Tính lại đường bộ</button><button class="small" data-act="csv">Tải CSV</button></div><div class="note" style="margin:4px 0 6px">${esc(msg)}</div>`;
+  const body = rows.length ? rows.slice(0, LIM).map(x => {
+    const ok = x.r && x.r.d != null;
+    const sub = ok ? fmtTime(x.r.t) + ' · bay ' + fmtKm(x.s) : (x.r ? 'không có đường' : (z.busy ? 'chim bay · đang tính…' : 'chim bay'));
+    return `<div class="zrow" data-id="${x.a.id}"><input type="checkbox" ${selected.has(x.a.id) ? 'checked' : ''} aria-label="Chọn ${esc(x.a.name)}">
+      <div class="t"><b>${esc(x.a.name)}</b><small>${esc([x.a.addr, x.a.dist, x.a.prov].filter(Boolean).join(', '))}</small></div>
+      <div class="d"><b>${ok || !x.r ? (ok ? '' : '~') + fmtKm(ok ? x.r.d : x.s) : '—'}</b><small>${sub}</small></div></div>`;
+  }).join('') : '<div class="note">Không có đại lý nào trong vùng này.</div>';
+  el.innerHTML = head + body + (rows.length > LIM ? `<div class="note">Hiện ${LIM}/${rows.length} đại lý gần nhất. Bấm “Tải CSV” để xem đủ.</div>` : '');
+}
+/* Tính đường bộ dần dần: gần trước, xa sau; mỗi đợt xong là cập nhật danh sách ngay */
+async function zoneRoad(z) {
+  if (z.busy) { z.again = true; return; }
+  z.busy = true; z.msg = '';
+  try {
+    for (let guard = 0; guard < 200; guard++) {
+      const key = zkey(z);
+      if (!z.road || z.roadKey !== key) { z.road = new Map(); z.roadKey = key; }
+      const todo = [...z.ids].filter(id => !z.road.has(id)).map(id => byId.get(id))
+        .sort((a, b) => haversine(z, a) - haversine(z, b)).slice(0, 40);
+      if (!todo.length) break;
+      renderZoneList(z);
+      const j = await fj(`${OSRM}/table/v1/driving/${lonlat([z, ...todo])}?sources=0&destinations=${todo.map((_, k) => k + 1).join(';')}&annotations=distance,duration`);
+      if (j.code !== 'Ok') throw new Error(j.code || 'lỗi');
+      if (zkey(z) !== key) continue;   // ghim đã bị dời trong lúc tính
+      todo.forEach((a, k) => z.road.set(a.id, { d: j.distances[0][k], t: j.durations[0][k] }));
+    }
+    z.err = false;
+  } catch (e) {
+    z.err = true;
+    z.msg = 'Không lấy được đường bộ (' + (e.message || e) + '). Đang hiển thị đường chim bay; bấm “Tính lại đường bộ” để thử lại.';
+  } finally {
+    z.busy = false; renderZoneList(z);
+  }
+  if (z.again) { z.again = false; zoneRoad(z); }
+}
+function zoneAuto(z) {
+  if (!z.open || z.err) return;
+  clearTimeout(z.tm); z.tm = setTimeout(() => zoneRoad(z), 500);
+}
+function zoneCsv(z) {
+  const { rows } = zoneRows(z);
+  const q = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+  const out = [['STT', 'Tên', 'Địa chỉ', 'Tỉnh (cũ)', 'Huyện (cũ)', 'SĐT', 'Vĩ độ', 'Kinh độ', 'Km chim bay', 'Km đường bộ', 'Phút lái xe']];
+  rows.forEach((x, i) => out.push([i + 1, x.a.name, x.a.addr, x.a.prov, x.a.dist, x.a.phone, x.a.lat, x.a.lng, (x.s / 1000).toFixed(2),
+    x.r && x.r.d != null ? (x.r.d / 1000).toFixed(2) : '', x.r && x.r.t != null ? Math.round(x.r.t / 60) : '']));
+  const blob = new Blob(['\uFEFF' + out.map(r => r.map(q).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'vung-ban-kinh.csv'; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
 function renderZones() {
   $('#zoneList').innerHTML = zones.map((z, i) => `
@@ -975,7 +1051,9 @@ function renderZones() {
         <button class="small" data-act="unsel">Bỏ chọn</button>
         <button class="small" data-act="start">🚩 Làm điểm xuất phát</button>
         <button class="small" data-act="fit">Xem</button>
+        <button class="small" data-act="list">${z.open ? '▲ Ẩn danh sách' : '📋 Xem danh sách'}</button>
       </div>
+      <div class="zlist" id="zl-${z.id}" style="display:${z.open ? 'block' : 'none'}"></div>
     </div>`).join('');
   fillZoneNums();
 }
@@ -984,10 +1062,12 @@ function zoneRefresh() {
     z.color = ZCOL[i % ZCOL.length]; zoneCalc(z);
     z.circle.setStyle({ color: z.color, fillColor: z.color }); z.circle.setRadius(z.r * 1000);
     z.marker.setIcon(zIcon(z, i));
+    if (z.roadKey && z.roadKey !== zkey(z)) { z.road = null; z.msg = ''; }
   });
   zoneU = zoneUnion();
   renderZones(); styleAll();
   if (zoneFilter) renderList();
+  zones.forEach(zoneAuto);
 }
 function zoneSoft() {
   if (zRaf) return;
@@ -1041,9 +1121,16 @@ $('#zoneList').addEventListener('input', e => {
   z.r = v; z.circle.setRadius(v * 1000);
   card.querySelector('[data-act=rng]').value = v;
   if (act === 'rng') card.querySelector('[data-act=num]').value = v;
-  zoneCalc(z); zoneSoft();
+  zoneCalc(z); zoneSoft(); zoneAuto(z);
 });
 $('#zoneList').addEventListener('click', e => {
+  const row = e.target.closest('.zrow');
+  if (row && !e.target.closest('button')) {
+    const id = +row.dataset.id, a = byId.get(id);
+    if (e.target.tagName === 'INPUT') { selected.has(id) ? selected.delete(id) : selected.add(id); renderList(); styleAll(); fillZoneNums(); }
+    else { map.setView([a.lat, a.lng], 15); markers.get(id)?.openPopup(); }
+    return;
+  }
   const b = e.target.closest('button'); if (!b) return;
   const card = b.closest('.zcard'), z = zones.find(x => x.id === +card.dataset.z); if (!z) return;
   const i = zones.indexOf(z);
@@ -1052,6 +1139,9 @@ $('#zoneList').addEventListener('click', e => {
   else if (b.dataset.act === 'unsel') { z.ids.forEach(id => selected.delete(id)); renderList(); styleAll(); fillZoneNums(); }
   else if (b.dataset.act === 'start') setStart({ lat: z.lat, lng: z.lng, label: `Điểm ${i + 1} (vùng ${z.r} km)` });
   else if (b.dataset.act === 'fit') map.fitBounds(z.circle.getBounds(), { padding: [40, 40] });
+  else if (b.dataset.act === 'list') { z.open = !z.open; renderZones(); if (z.open) { z.err = false; zoneRoad(z); } }
+  else if (b.dataset.act === 'road') { z.err = false; zoneRoad(z); }
+  else if (b.dataset.act === 'csv') zoneCsv(z);
 });
 renderZones();
 
@@ -1079,7 +1169,7 @@ function setData(text, origin) {
     if (!MAPIDX) st.className = 'err';
   }
   $('#colinfo').textContent = res.used ? 'Cột nhận diện: ' + res.used : '';
-  buildMarkers(); syncCombos(); renderList(); renderProvGrid(); zoneRefresh();
+  buildMarkers(); syncCombos(); renderList(); renderProvGrid(); zones.forEach(z => { z.road = null; z.roadKey = ''; z.msg = ''; }); zoneRefresh();
   if (provMode) drawBubbles();
   fitAgents(agents);
 }
