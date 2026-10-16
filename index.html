@@ -122,6 +122,13 @@ button.small{padding:4px 8px;font-size:12px}
 .pcard.on{border-color:var(--teal);background:var(--teal-soft);box-shadow:inset 0 0 0 1px var(--teal)}
 .pcard.part{border-color:var(--teal);border-style:dashed}
 .bubble.on{outline:3px solid #f59e0b;outline-offset:2px}
+#map.heat-on{background:#0e1012}
+#map.heat-on .leaflet-tile-pane{filter:grayscale(1) brightness(.4) contrast(1.15)}
+#heatLegend{display:none;position:absolute;z-index:500;left:12px;bottom:28px;background:rgba(14,16,18,.9);color:#eee;padding:9px 12px;border-radius:var(--radius);font-size:12px;box-shadow:0 2px 8px rgba(0,0,0,.4);max-width:260px}
+#heatLegend .hbar{height:9px;width:200px;border-radius:5px;margin:6px 0 3px;background:linear-gradient(90deg,#783c1e,#e66e14 40%,#ffc83c 75%,#fffadc)}
+#heatLegend .hl{display:flex;justify-content:space-between;width:200px;color:#bbb}
+#heatLegend .hn{margin-top:6px;color:#ccc}
+#heatLegend .hdot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#777;opacity:.5;margin-right:4px}
 #zsum{font-weight:600;margin-bottom:6px}
 .zlist{margin-top:10px;border-top:1px dashed var(--line);padding-top:8px}
 .zlh{display:flex;gap:6px;flex-wrap:wrap}
@@ -205,6 +212,7 @@ button.small{padding:4px 8px;font-size:12px}
       </div>
       <div class="listhead">
         <span id="cnt"></span><span class="sp"></span>
+        <select id="sortBy" style="width:auto;padding:4px 6px;font-size:12px"><option value="">Sắp xếp: mặc định</option><option value="rev">Doanh số cao → thấp</option></select>
         <button class="small" id="selAll">Chọn tất cả đang lọc</button>
         <button class="small" id="selNone">Bỏ chọn hết</button>
       </div>
@@ -275,9 +283,11 @@ button.small{padding:4px 8px;font-size:12px}
 
   <main id="mapwrap">
     <div id="map"></div>
+    <div id="heatLegend"><b>Doanh số</b><div class="hbar"></div><div class="hl"><span id="hLo"></span><span id="hHi"></span></div><div class="hn" id="hInfo"></div><div class="hn"><i class="hdot"></i>không có số: mờ</div></div>
     <div id="hint">Bấm vào bản đồ để đặt điểm xuất phát</div>
     <div class="mapbtn">
       <button id="btnFit">Xem tất cả</button>
+      <button id="btnHeat">🔥 Nhiệt doanh số</button>
       <button id="btnProvMode">Xem theo tỉnh</button>
     </div>
   </main>
@@ -464,6 +474,26 @@ function fillByNeighbors(list) {
   return n;
 }
 
+function parseMoney(x) {
+  let s = String(x ?? '').trim().toLowerCase(); if (!s) return null;
+  let mult = 1;
+  if (/(tỷ|ty)(?![a-z])/.test(s)) mult = 1e9;
+  else if (/(triệu|trieu|tr)\b/.test(s)) mult = 1e6;
+  else if (/(nghìn|nghin|ngàn|ngan|k)\b/.test(s)) mult = 1e3;
+  s = s.replace(/[^0-9.,\-]/g, '');
+  if (!/\d/.test(s)) return null;
+  const hasDot = s.includes('.'), hasCom = s.includes(',');
+  if (hasDot && hasCom) {
+    const last = Math.max(s.lastIndexOf('.'), s.lastIndexOf(','));
+    s = s[last] === '.' ? s.replace(/,/g, '') : s.replace(/\./g, '').replace(',', '.');
+  } else if (hasDot || hasCom) {
+    const sep = hasDot ? '.' : ',', parts = s.split(sep);
+    if (parts.length > 2 || (parts.length === 2 && parts[1].length === 3 && mult === 1)) s = parts.join('');
+    else s = s.replace(sep, '.');
+  }
+  const n = parseFloat(s);
+  return isFinite(n) ? n * mult : null;
+}
 function buildAgents(rows) {
   let hi = rows.findIndex((r, i) => i < 5 && r.filter(c => c.trim()).length >= 2);
   if (hi < 0) hi = 0;
@@ -480,9 +510,17 @@ function buildAgents(rows) {
     dist:    find([/^quan|huyen|district/]),
     addr:    find([/dia chi|address/]),
     phone:   find([/sdt|so dien thoai|dien thoai|phone|tel/]),
+    rev:     find([/doanh so|doanh thu|sales|revenue/]),
   };
   if (col.prov === col.provOld) col.prov = -1;
   if (col.dist === col.distOld) col.dist = -1;
+  if (col.rev < 0) {   // không thấy tên cột -> thử cột F (số thứ tự 6) nếu toàn số
+    const used = new Set(Object.values(col)), j = 5;
+    if (!used.has(j) && rows[hi].length > j) {
+      const vals = rows.slice(hi + 1).map(r => r[j]).filter(v => String(v ?? '').trim());
+      if (vals.length && vals.filter(v => parseMoney(v) !== null).length / vals.length >= 0.5) col.rev = j;
+    }
+  }
   const out = []; let skipped = 0;
   for (let i = hi + 1; i < rows.length; i++) {
     const r = rows[i]; let ll = null;
@@ -506,7 +544,7 @@ function buildAgents(rows) {
     }
     if (!prov && rp.name) { prov = rp.name; how = 'địa chỉ'; }
     if (!dist) dist = g('dist') || guessDist(rp.segs, rp.idx);
-    out.push({ id: out.length, name: name.trim(), addr, prov: prov || UNK, dist, how: how || 'chưa rõ', phone: g('phone'), lat: ll.lat, lng: ll.lng });
+    out.push({ id: out.length, name: name.trim(), addr, prov: prov || UNK, dist, how: how || 'chưa rõ', phone: g('phone'), rev: parseMoney(g('rev')), lat: ll.lat, lng: ll.lng });
   }
   const near = fillByNeighbors(out);
   out.forEach(a => { a.pk = norm(a.prov); a.dk = norm(a.dist); a.hay = norm([a.name, a.addr, a.phone, a.dist, a.prov].join(' ')); });
@@ -532,7 +570,7 @@ const startLayer = L.layerGroup().addTo(map);
 let markers = new Map();
 
 function popupHtml(a) {
-  return `<b>${esc(a.name)}</b><br>${esc(a.addr)}${a.addr ? '<br>' : ''}${a.phone ? '☎ ' + esc(a.phone) + '<br>' : ''}
+  return `<b>${esc(a.name)}</b><br>${esc(a.addr)}${a.addr ? '<br>' : ''}${a.phone ? '☎ ' + esc(a.phone) + '<br>' : ''}${a.rev != null ? 'Doanh số: <b>' + fmtMoney(a.rev) + '</b><br>' : ''}
     <button class="pbtn" onclick="App.toggle(${a.id})">${selected.has(a.id) ? 'Bỏ chọn' : 'Chọn'}</button>
     <button class="pbtn" onclick="App.setStartAgent(${a.id})">🚩 Xuất phát</button>`;
 }
@@ -548,6 +586,11 @@ const filtering = () => !!(filter.areas.length || filter.q || (zoneFilter && zon
 function styleMarker(a) {
   const m = markers.get(a.id); if (!m) return;
   const isSel = selected.has(a.id), ok = matches(a);
+  if (heat.on) {   // chỉ giữ vòng chọn; điểm để trong suốt nhưng vẫn bấm/rê chuột được
+    m.setStyle(isSel ? { radius: 9, color: '#38bdf8', weight: 3, fillOpacity: 0, opacity: 1 } : { radius: 7, weight: 0, fillOpacity: 0, opacity: 0 });
+    if (isSel) m.bringToFront();
+    return;
+  }
   m.setStyle(isSel
     ? { radius: 8, color: '#fff', weight: 2, fillColor: '#e4572e', fillOpacity: 1, opacity: 1 }
     : ok || !filtering()
@@ -555,14 +598,14 @@ function styleMarker(a) {
       : { radius: 4, color: '#999', weight: 1, fillColor: '#bbb', fillOpacity: .35, opacity: .35 });
   if (isSel) m.bringToFront();
 }
-function styleAll() { agents.forEach(styleMarker); }
+function styleAll() { agents.forEach(styleMarker); heat.schedule(); }
 
 function buildMarkers() {
   agentLayer.clearLayers(); markers.clear();
   agents.forEach(a => {
     const m = L.circleMarker([a.lat, a.lng], { radius: 5 });
     m.bindPopup(() => popupHtml(a));
-    m.bindTooltip(a.name, { direction: 'top' });
+    m.bindTooltip(() => esc(a.name) + (a.rev != null ? ' · DS ' + fmtMoney(a.rev) : ''), { direction: 'top' });
     m.addTo(agentLayer); markers.set(a.id, m);
   });
   styleAll();
@@ -573,6 +616,102 @@ function fitAgents(list) {
   const b = L.latLngBounds(list.map(a => [a.lat, a.lng]));
   map.fitBounds(b, { padding: [40, 40], maxZoom: 13 });
 }
+
+/* ====== BẢN ĐỒ NHIỆT DOANH SỐ ====== */
+function fmtMoney(v) {
+  if (v == null) return '';
+  const r = x => String(Math.round(x * 10) / 10).replace('.', ',');
+  return v >= 1e9 ? r(v / 1e9) + ' tỷ' : v >= 1e6 ? r(v / 1e6) + ' tr' : v >= 1e3 ? r(v / 1e3) + ' k' : String(v);
+}
+const HEAT_LV = 24;
+const heat = {
+  on: false, canvas: null, sprites: [], lo: 0, hi: 1, vmin: 0, vmax: 0, raf: 0,
+  init() {
+    map.createPane('heat');
+    const pane = map.getPane('heat'); pane.style.zIndex = 350; pane.style.pointerEvents = 'none';
+    this.canvas = L.DomUtil.create('canvas', '', pane); this.canvas.style.position = 'absolute'; this.canvas.style.display = 'none';
+    map.on('move zoom resize moveend zoomend', () => this.schedule());
+    map.on('zoomstart', () => { if (this.on) this.canvas.style.opacity = 0; });
+  },
+  stats() {   // thang log theo phân vị 5%–97% để vài đại lý quá lớn không làm cả bản đồ tối
+    const v = agents.map(a => a.rev).filter(x => x > 0).sort((x, y) => x - y);
+    if (!v.length) { this.lo = 0; this.hi = 1; this.vmin = this.vmax = 0; return; }
+    const q = p => v[Math.min(v.length - 1, Math.floor(p * (v.length - 1)))];
+    this.vmin = q(.05); this.vmax = q(.97);
+    this.lo = Math.log(this.vmin); this.hi = Math.log(this.vmax);
+    if (!(this.hi > this.lo)) this.hi = this.lo + 1;
+  },
+  t(a) {   // 0 = thấp nhất, 1 = cao nhất, -1 = không có số
+    if (a.rev == null) return -1;
+    if (a.rev <= 0) return 0;
+    return Math.min(1, Math.max(0, (Math.log(a.rev) - this.lo) / (this.hi - this.lo)));
+  },
+  color(t) {
+    const st = [[0, [120, 60, 30]], [.4, [230, 110, 20]], [.75, [255, 200, 60]], [1, [255, 250, 220]]];
+    for (let i = 1; i < st.length; i++) if (t <= st[i][0]) {
+      const [t0, c0] = st[i - 1], [t1, c1] = st[i], k = (t - t0) / (t1 - t0);
+      return c0.map((x, j) => Math.round(x + (c1[j] - x) * k));
+    }
+    return st[3][1];
+  },
+  sprite(i) {
+    if (this.sprites[i]) return this.sprites[i];
+    const S = 128, t = i / (HEAT_LV - 1), c = document.createElement('canvas'); c.width = c.height = S;
+    const g = c.getContext('2d'), [r, gr, b] = this.color(t), A = .2 + .8 * t;
+    const h = g.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+    h.addColorStop(0, `rgba(${r},${gr},${b},${A})`);
+    h.addColorStop(.18, `rgba(${r},${gr},${b},${A * .85})`);
+    h.addColorStop(.5, `rgba(${r},${gr},${b},${A * .33})`);
+    h.addColorStop(1, `rgba(${r},${gr},${b},0)`);
+    g.fillStyle = h; g.fillRect(0, 0, S, S);
+    const k = g.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S * .1);
+    k.addColorStop(0, `rgba(255,255,235,${.2 + .75 * t})`); k.addColorStop(1, 'rgba(255,255,235,0)');
+    g.fillStyle = k; g.fillRect(0, 0, S, S);
+    return (this.sprites[i] = c);
+  },
+  schedule() { if (!this.on || this.raf) return; this.raf = requestAnimationFrame(() => { this.raf = 0; this.draw(); }); },
+  draw() {
+    if (!this.on) return;
+    const sz = map.getSize(), dpr = window.devicePixelRatio || 1, cv = this.canvas;
+    L.DomUtil.setPosition(cv, map.containerPointToLayerPoint([0, 0]));
+    if (cv.width !== Math.round(sz.x * dpr) || cv.height !== Math.round(sz.y * dpr)) {
+      cv.width = Math.round(sz.x * dpr); cv.height = Math.round(sz.y * dpr); cv.style.width = sz.x + 'px'; cv.style.height = sz.y + 'px';
+    }
+    const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, sz.x, sz.y);
+    g.globalCompositeOperation = 'lighter';
+    const zf = Math.min(2.2, Math.max(.5, .55 + (map.getZoom() - 6) * .14));
+    const bnd = map.getBounds().pad(.3), dim = filtering();
+    let sum = 0, withV = 0, total = 0;
+    for (const a of agents) {
+      const ok = !dim || matches(a);
+      if (ok) { total++; if (a.rev != null) { withV++; sum += a.rev; } }
+      if (!bnd.contains([a.lat, a.lng])) continue;
+      const p = map.latLngToContainerPoint([a.lat, a.lng]), t = this.t(a);
+      if (t < 0) {   // không có số: mờ tịt
+        g.fillStyle = ok ? 'rgba(150,150,150,.14)' : 'rgba(150,150,150,.06)';
+        g.beginPath(); g.arc(p.x, p.y, 2.4, 0, 6.2832); g.fill(); continue;
+      }
+      const R = (7 + 38 * t) * zf;   // doanh số càng cao: sáng hơn và quầng mờ càng rộng
+      g.globalAlpha = ok ? 1 : .18;
+      g.drawImage(this.sprite(Math.round(t * (HEAT_LV - 1))), p.x - R, p.y - R, 2 * R, 2 * R);
+    }
+    g.globalAlpha = 1; cv.style.opacity = 1;
+    $('#hLo').textContent = this.vmax ? 'thấp ≈ ' + fmtMoney(this.vmin) : '';
+    $('#hHi').textContent = this.vmax ? 'cao ≈ ' + fmtMoney(this.vmax) : '';
+    $('#hInfo').textContent = !agents.some(a => a.rev != null)
+      ? 'Chưa đọc được doanh số: kiểm tra cột “Doanh số” trong sheet.'
+      : `${withV}/${total} đại lý có doanh số · tổng ${fmtMoney(sum)}` + (dim ? ' (theo bộ lọc)' : '');
+  },
+  set(on) {
+    this.on = on;
+    $('#map').classList.toggle('heat-on', on); $('#btnHeat').classList.toggle('on', on);
+    $('#heatLegend').style.display = on ? 'block' : 'none'; this.canvas.style.display = on ? 'block' : 'none';
+    if (on) this.stats();
+    styleAll(); if (on) this.draw();
+  }
+};
+heat.init();
+$('#btnHeat').onclick = () => heat.set(!heat.on);
 
 /* ====== BONG BÓNG THEO TỈNH ====== */
 function provStats() {
@@ -705,7 +844,8 @@ function refreshDist() {
   cDist.set('');
 }
 function syncCombos() { cProv.set(filter.ctx); refreshDist(); renderChips(); }
-function filtered() { return agents.filter(matches); }
+let sortMode = '';
+function filtered() { const f = agents.filter(matches); if (sortMode === 'rev') f.sort((x, y) => (y.rev ?? -1) - (x.rev ?? -1)); return f; }
 
 function renderList() {
   const f = filtered();
@@ -713,7 +853,7 @@ function renderList() {
   $('#list').innerHTML = shown.map(a => `
     <div class="item ${selected.has(a.id) ? 'sel' : ''}" data-id="${a.id}">
       <input type="checkbox" ${selected.has(a.id) ? 'checked' : ''} aria-label="Chọn ${esc(a.name)}">
-      <div class="t"><b>${esc(a.name)}</b><small>${esc([a.addr, a.dist, a.prov].filter(Boolean).join(', '))}</small></div>
+      <div class="t"><b>${esc(a.name)}</b><small>${esc([a.addr, a.dist, a.prov].filter(Boolean).join(', '))}${a.rev != null ? ' · DS ' + fmtMoney(a.rev) : ''}</small></div>
       <div class="act">
         <button data-act="start" title="Đặt làm điểm xuất phát">🚩</button>
         <button data-act="zoom" title="Xem trên bản đồ">🔍</button>
@@ -966,6 +1106,7 @@ $('#provClear').onclick = () => { filter.areas = []; filter.ctx = ''; areasChang
 $('#provQ').oninput = () => renderProvGrid();
 $('#selAll').onclick = () => { filtered().forEach(a => selected.add(a.id)); renderList(); styleAll(); };
 $('#selNone').onclick = () => { selected.clear(); renderList(); styleAll(); };
+$('#sortBy').onchange = e => { sortMode = e.target.value; renderList(); };
 $('#btnGo').onclick = compute; $('#btnGo2').onclick = compute;
 
 $('#list').onclick = e => {
@@ -1026,9 +1167,9 @@ function fillZoneNums() {
   zones.forEach(z => {
     const c = $('#zc-' + z.id); if (!c) return;
     c.textContent = z.ids.size;
-    const br = zoneBreak(z);
+    const br = zoneBreak(z), rv = [...z.ids].reduce((t, id) => t + (byId.get(id).rev || 0), 0);
     $('#zb-' + z.id).textContent = br.length
-      ? br.slice(0, 6).map(([p, n]) => `${p} ${n}`).join(' · ') + (br.length > 6 ? ` · +${br.length - 6} tỉnh` : '')
+      ? (rv ? 'Doanh số ' + fmtMoney(rv) + ' · ' : '') + br.slice(0, 6).map(([p, n]) => `${p} ${n}`).join(' · ') + (br.length > 6 ? ` · +${br.length - 6} tỉnh` : '')
       : 'Không có đại lý nào trong vùng này';
     const sel = [...z.ids].filter(id => selected.has(id)).length;
     $('#zs-' + z.id).textContent = sel ? `(đã chọn ${sel})` : '';
@@ -1234,7 +1375,7 @@ function setData(text, origin) {
     if (!MAPIDX) st.className = 'err';
   }
   $('#colinfo').textContent = res.used ? 'Cột nhận diện: ' + res.used : '';
-  buildMarkers(); syncCombos(); renderList(); renderProvGrid(); zones.forEach(z => { z.road = null; z.roadKey = ''; z.msg = ''; }); zoneRefresh();
+  buildMarkers(); heat.stats(); syncCombos(); renderList(); renderProvGrid(); zones.forEach(z => { z.road = null; z.roadKey = ''; z.msg = ''; }); zoneRefresh();
   if (provMode) drawBubbles();
   fitAgents(agents);
 }
