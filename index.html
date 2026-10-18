@@ -290,6 +290,7 @@ function drawWh(){
     const ls=warehouseMembers(w),card=document.createElement('div');card.className='warehouse-card';
     card.innerHTML=`<div class="row"><b class="warehouse-title">🏭 ${esc(w.name)}</b><button class="n" data-act="delete">Xóa</button></div>
     <div class="mu">${fmt(w.r)} km · ${warehouseVehicle(w)}${w.al?' · '+esc(w.al):''}</div>
+    <div class="row"><label class="row"><span class="n mu">Bán kính (km)</span><input data-radius-km type="number" min="0.1" step="any" value="${Number(w.r)}" aria-label="Bán kính kho (km)"></label><button class="n" data-act="apply-radius">Áp dụng</button></div>
     <div class="warehouse-total"><b>${fmt(ls.length)}</b> đại lý · Doanh số <b>${fmt(ls.reduce((s,d)=>s+d.s,0))}</b></div>
     <label class="mu"><input type="checkbox" data-act="radius" ${w.showRadius!==false?'checked':''}> Hiện vòng bán kính</label>
     <details><summary>Phương tiện của kho</summary><div><select data-vehicle class="w"><option value="van" ${w.vehicle!=='truck'?'selected':''}>Xe van / ô tô</option><option value="truck" ${w.vehicle==='truck'?'selected':''}>Xe tải</option></select><div class="mu">Thông số dùng khi chọn xe tải:</div><div class="row"><label>Cao (m)<input class="w" type="number" data-param="height" value="${Number(w.truck?.height)||2.8}" min="0.1" step="0.1"></label><label>Rộng (m)<input class="w" type="number" data-param="width" value="${Number(w.truck?.width)||2.2}" min="0.1" step="0.1"></label></div><div class="row"><label>Dài (m)<input class="w" type="number" data-param="length" value="${Number(w.truck?.length)||6}" min="0.1" step="0.1"></label><label>Tổng xe + hàng (tấn)<input class="w" type="number" data-param="weight" value="${Number(w.truck?.weight)||3.5}" min="0.1" step="0.1"></label></div><button data-act="vehicle">Áp dụng phương tiện</button></div></details>
@@ -299,6 +300,15 @@ function drawWh(){
     card.querySelector('[data-act="delete"]').onclick=()=>A.dw(w.id);
     card.querySelector('[data-act="radius"]').onchange=e=>{w.showRadius=e.target.checked;save();drawWh()};
     card.querySelector('[data-act="focus"]').onclick=()=>focusWarehouse(w);
+    const radiusInput=card.querySelector('[data-radius-km]');
+    const applyRadius=()=>{
+      const value=Number(radiusInput.value);
+      if(!Number.isFinite(value)||value<=0){toast('Nhập bán kính lớn hơn 0 km.');return}
+      if(value===Number(w.r))return;
+      w.r=value;warehouseCache.delete(w.id);save();drawWh();focusWarehouse(w);
+    };
+    card.querySelector('[data-act="apply-radius"]').onclick=applyRadius;
+    radiusInput.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();applyRadius()}};
     card.querySelector('[data-act="vehicle"]').onclick=()=>{
       const truck={};for(const key of ['height','width','length','weight'])truck[key]=Number(card.querySelector('[data-param="'+key+'"]').value);
       const vehicle=card.querySelector('[data-vehicle]').value;
