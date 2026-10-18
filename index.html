@@ -52,7 +52,7 @@ img.dk{filter:invert(1) hue-rotate(180deg) brightness(.85) contrast(.9)}
 <details><summary>Khoanh vùng khu vực</summary><div>
 <input id="rq" class="w" placeholder="Nhập tên khu vực, vd: Thái Bình, Hải Phòng, Ân Thi Hưng Yên">
 <button id="rf" class="pr w">Tìm và khoanh vùng</button>
-<div class="mu">Hoặc chọn từ danh sách 63 tỉnh và quận/huyện cũ:</div>
+<div class="mu">Chọn theo tỉnh/huyện cũ (nên dùng mục này):</div>
 <div id="ra"></div>
 <button id="rb" class="w">Khoanh vùng đã chọn</button>
 <div id="rgl" class="list"></div>
@@ -82,7 +82,7 @@ img.dk{filter:invert(1) hue-rotate(180deg) brightness(.85) contrast(.9)}
 /* ===== CẤU HÌNH ===== */
 const CSV='https://docs.google.com/spreadsheets/d/e/2PACX-1vSqx48yei68qBJFSiHZzxCeGO0df4IDE6md9hzu7TUv5GjgOvU9yIpm4lEN6HJw9zJuek4YYMj8XAyn/pub?output=csv';
 // Tỉnh/huyện lấy từ cột Địa chỉ. File ranh giới dưới đây là TÙY CHỌN, chỉ dùng bổ sung cho đại lý thiếu địa chỉ.
-const PU=['data/provinces.geojson'];
+const PU=['data/provinces.geojson','https://raw.githubusercontent.com/nguyenduy1133/Free-GIS-Data/main/Vietnam%20Administrative%20Divisions%20(Pre-2025)%20-%20%C4%90%C6%A1n%20v%E1%BB%8B%20h%C3%A0nh%20ch%C3%ADnh%20Vi%E1%BB%87t%20Nam%20(Tr%C6%B0%E1%BB%9Bc%202025)/Provinces_included_Paracel_SpratlyIslands_combine.geojson','https://raw.githubusercontent.com/nguyenduy1133/Free-GIS-Data/main/Vietnam%20Administrative%20Divisions%20(Pre-2025)%20-%20%C4%90%C6%A1n%20v%E1%BB%8B%20h%C3%A0nh%20ch%C3%ADnh%20Vi%E1%BB%87t%20Nam%20(Tr%C6%B0%E1%BB%9Bc%202025)/Provinces_included_Paracel_SpratlyIslands.geojson'];
 const DU=['data/districts.geojson'];
 const NP=['NAME_1','Name_VI','ten_tinh','Ten_Tinh','ADM1_VI','Name','name'],NQ=['NAME_2','ten_huyen','Ten_Huyen','ADM2_VI','Name','name'];
 const CSVS=[CSV.replace('pub?output=csv','pub?gid=965897694&single=true&output=csv'),CSV];
@@ -174,7 +174,11 @@ function locateAll(){
 async function loadBounds(){
   const [p,q]=await Promise.all([getJSON(PU),getJSON(DU)]);
   const mk=(j,nk,pk)=>(j?j.features:[]).map(f=>{const pr=f.properties||{},n=pick(pr,nk),pp=pk&&pick(pr,pk);return{n:pretty(n),k:norm(n),pk:pp?norm(pp):'',g:f.geometry,bb:bbox(f.geometry)}});
-  PF=mk(p,NP);DF=mk(q,NQ,NP);
+  const mkP=j=>(j?j.features:[]).map(f=>{
+    const vs=Object.values(f.properties||{}).filter(v=>typeof v=='string');
+    const A=ADM.find(a=>vs.some(v=>{const k=norm(v.replace(/^(thành phố|tỉnh|tp\.?)\s+/i,''));return k==a.k||(k=='hue'&&a.k=='thuathienhue')}));
+    return A?{n:A.n,k:A.k,pk:'',g:f.geometry,bb:bbox(f.geometry)}:null}).filter(Boolean);
+  PF=mkP(p);DF=mk(q,NQ,NP);
 }
 async function loadData(){
   toast('Đang tải dữ liệu đại lý…');
@@ -209,7 +213,7 @@ function col(t){const g=[150,156,164],o=[255,138,0],r=[255,40,20],[a,b,u]=t<.5?[
 function drawHeat(){
   heat.clearLayers();tagL.clearLayers();
   const z=map.getZoom(),k=Math.min(4,Math.max(.7,Math.pow(2,(z-8)*.5))),F=fil().sort((a,b)=>a.s-b.s),mx=Math.max(1,...D.map(d=>d.s)),T=d=>Math.sqrt(d.s/mx);
-  const G=rgGeoms(),gb=G.map(bbox),inR=d=>!G.length||G.some((g,i)=>inBB(d,gb[i])&&inGeom(d.lon,d.lat,g));
+  const I=rgItems(),G=I.map(x=>x.g),inR=d=>!I.length||I.some(x=>x.a?inA(d,x.a):inBB(d,x.bb)&&inGeom(d.lon,d.lat,x.g));
   const ring=(d,rad,op)=>L.circleMarker([d.lat,d.lon],{radius:rad,stroke:false,fillColor:col(T(d)),fillOpacity:op,interactive:false}).addTo(heat);
   F.forEach(d=>{const t=T(d);ring(d,(9+42*t)*k,.04+.13*t)});
   F.forEach(d=>{const t=T(d);ring(d,(5+24*t)*k,.07+.26*t)});
@@ -270,7 +274,15 @@ map.on('click',e=>{if(mode=='wh'){mode=null;map.getContainer().style.cursor='';a
 
 /* ===== 3. KHOANH VÙNG ===== */
 const regionGeoms=r=>r.g?[r.g]:(r.q?DF.filter(f=>f.k==r.q&&f.pk==r.p):PF.filter(f=>f.k==r.p)).map(f=>f.g);
-const rgGeoms=()=>S.rg.flatMap(regionGeoms);
+const rgItems=()=>S.rg.flatMap(r=>regionGeoms(r).map(g=>({g,bb:bbox(g),a:r.p?{p:r.p,q:r.q}:null})));
+function hull(ds){
+  const P=ds.map(d=>[d.lon,d.lat]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]),cr=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]),H=[];
+  for(const p of P){while(H.length>1&&cr(H[H.length-2],H[H.length-1],p)<=0)H.pop();H.push(p)}
+  const n=H.length+1;for(let i=P.length-2;i>=0;i--){const p=P[i];while(H.length>=n&&cr(H[H.length-2],H[H.length-1],p)<=0)H.pop();H.push(p)}
+  H.pop();const c=H.reduce((a,p)=>[a[0]+p[0]/H.length,a[1]+p[1]/H.length],[0,0]);
+  const o=H.map(p=>{const dx=p[0]-c[0],dy=p[1]-c[1],l=Math.hypot(dx,dy)||1,e=.03;return[p[0]+dx/l*e+dx*.06,p[1]+dy/l*e+dy*.06]});
+  return{type:'Polygon',coordinates:[[...o,o[0]]]};
+}
 function shade(G){
   rgL.clearLayers();if(!G.length)return;
   const holes=[];G.forEach(g=>(g.type=='Polygon'?[g.coordinates]:g.coordinates).forEach(p=>holes.push(p[0].map(c=>[c[1],c[0]]))));
@@ -285,7 +297,12 @@ function drawRg(fit){
   if(fit&&S.rg.length){const b=regionGeoms(S.rg[S.rg.length-1]).map(bbox);
     if(b.length)map.fitBounds([[Math.min(...b.map(x=>x[1])),Math.min(...b.map(x=>x[0]))],[Math.max(...b.map(x=>x[3])),Math.max(...b.map(x=>x[2]))]],{padding:[30,30]})}
 }
-$('#rb').onclick=()=>{const a=RA.get();if(!a.p||a.p=='__')return toast('Chọn tỉnh/thành phố trước');$('#rq').value=a.l;$('#rf').click()};
+$('#rb').onclick=()=>{
+  const a=RA.get();if(!a.p||a.p=='__')return toast('Chọn tỉnh/thành phố trước');
+  if(!a.q&&PF.some(f=>f.k==a.p)){S.rg.push({p:a.p,q:'',l:a.l+' (ranh giới cũ)'});save();drawRg(true);return}
+  const pts=D.filter(d=>inA(d,a));if(pts.length<3)return toast('Khu vực này có quá ít đại lý để vẽ vùng');
+  S.rg.push({p:a.p,q:a.q,l:a.l+' (ước tính theo đại lý)',g:hull(pts),h:1});save();drawRg(true);
+};
 $('#rf').onclick=async()=>{
   const q=$('#rq').value.trim();if(!q)return toast('Nhập tên khu vực cần khoanh');
   const n=norm(q),p=PF.find(f=>f.k==n),dd=DF.filter(f=>f.k==n);
@@ -368,7 +385,7 @@ let ft;const refresh=()=>{clearTimeout(ft);ft=setTimeout(drawHeat,250)};
 $('#q').oninput=refresh;
 $('#rld').onclick=async()=>{await loadData();initAreas();drawAll()};
 (async()=>{
-  try{await loadBounds();await loadAdm();await loadData();initAreas();drawAll();wx()}
+  try{await Promise.all([loadBounds(),loadAdm()]);await loadData();initAreas();drawAll();wx()}
   catch(e){console.error(e);toast('Lỗi tải dữ liệu. Kiểm tra link Google Sheet đã xuất bản dạng CSV.',8000)}
 })();
 </script></body></html>
