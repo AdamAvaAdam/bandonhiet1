@@ -36,7 +36,7 @@ img.dk{filter:invert(1) hue-rotate(180deg) brightness(.85) contrast(.9)}
 .district-name-anchor{background:none;border:0}
 .district-name{position:absolute;transform:translate(-50%,-50%);white-space:nowrap;font:600 11px/1.3 system-ui;color:#172033;background:#ffffffe0;border:1px solid #94a3b8;border-radius:4px;padding:2px 4px;box-shadow:0 1px 3px #0002}
 @media(max-width:760px){.district-legend{max-width:205px}.district-legend-scroll{max-height:100px}}
-#wl{max-height:560px}.list>.warehouse-card{display:block;padding:8px}.warehouse-title{overflow-wrap:anywhere}.warehouse-total{margin:5px 0}.warehouse-table{max-height:280px;overflow:auto}.warehouse-table table{min-width:280px}.warehouse-table th{position:sticky;top:0;background:var(--bg)}.warehouse-table td:first-child{text-align:left;min-width:125px}.warehouse-detail{margin-top:6px}.warehouse-detail[hidden]{display:none}button:disabled{opacity:.6;cursor:wait}#app[hidden]{display:none}#login-panel{min-height:100%;display:grid;place-items:center;padding:24px;background:var(--pn)}#login-form{width:100%;max-width:360px;padding:24px;background:var(--bg);border:1px solid var(--bd);border-radius:12px;box-shadow:0 8px 30px #0001}#login-form h1{font-size:20px}#login-form p{color:var(--mu)}#login-password{margin:8px 0 12px;padding:10px}#login-error{color:#dc2626;min-height:20px;margin-bottom:8px}.warehouse-split{padding:8px 0;line-height:1.65;border-top:1px solid var(--bd);border-bottom:1px solid var(--bd);margin:6px 0}.warehouse-inside{border-left:3px solid #22c55e;padding-left:6px;margin-top:4px}.warehouse-outside{border-left:3px solid #f97316;padding-left:6px;margin-top:4px}</style></head><body>
+#region-multi-list{max-height:200px;overflow:auto;border:1px solid var(--bd);border-radius:6px;background:var(--bg);margin:5px 0}.region-choice{display:block;padding:4px 7px}.region-choice[hidden]{display:none}#region-summary{border:1px solid var(--bd);border-radius:7px;padding:8px;margin-top:8px;background:var(--bg)}.region-grand-total{margin:5px 0}.region-summary-table{max-height:260px;overflow:auto;margin:5px 0}.region-summary-table td:first-child,.region-summary-table th:first-child{text-align:left}.region-summary-table th{position:sticky;top:0;background:var(--bg)}#wl{max-height:560px}.list>.warehouse-card{display:block;padding:8px}.warehouse-title{overflow-wrap:anywhere}.warehouse-total{margin:5px 0}.warehouse-table{max-height:280px;overflow:auto}.warehouse-table table{min-width:280px}.warehouse-table th{position:sticky;top:0;background:var(--bg)}.warehouse-table td:first-child{text-align:left;min-width:125px}.warehouse-detail{margin-top:6px}.warehouse-detail[hidden]{display:none}button:disabled{opacity:.6;cursor:wait}#app[hidden]{display:none}#login-panel{min-height:100%;display:grid;place-items:center;padding:24px;background:var(--pn)}#login-form{width:100%;max-width:360px;padding:24px;background:var(--bg);border:1px solid var(--bd);border-radius:12px;box-shadow:0 8px 30px #0001}#login-form h1{font-size:20px}#login-form p{color:var(--mu)}#login-password{margin:8px 0 12px;padding:10px}#login-error{color:#dc2626;min-height:20px;margin-bottom:8px}.warehouse-split{padding:8px 0;line-height:1.65;border-top:1px solid var(--bd);border-bottom:1px solid var(--bd);margin:6px 0}.warehouse-inside{border-left:3px solid #22c55e;padding-left:6px;margin-top:4px}.warehouse-outside{border-left:3px solid #f97316;padding-left:6px;margin-top:4px}</style></head><body>
 <div id="login-panel"><form id="login-form"><h1>Bản đồ phân tích thị trường</h1><p>Nhập mật khẩu để sử dụng ứng dụng.</p><label for="login-password">Mật khẩu</label><input id="login-password" type="password" class="w" autocomplete="current-password" required><div id="login-error" role="alert"></div><button class="pr w" type="submit">Đăng nhập</button></form></div><div id="app" hidden><aside id="side">
 <h1>Bản đồ phân tích thị trường</h1><button id="app-lock" type="button">Khóa ứng dụng</button>
 
@@ -72,7 +72,7 @@ img.dk{filter:invert(1) hue-rotate(180deg) brightness(.85) contrast(.9)}
 <div id="ra"></div>
 <button id="rb" class="w">Khoanh vùng đã chọn</button>
 <div style="margin:6px 0"><label><input type="checkbox" id="district-on" checked> Hiện ranh giới và màu các huyện</label><br><label><input type="checkbox" id="district-names" checked> Hiện tên huyện trên bản đồ</label><div class="mu">Áp dụng sau khi bấm “Khoanh vùng đã chọn”. Ranh giới huyện năm 2020.</div><div id="district-note" class="mu" role="status"></div></div>
-<div id="rgl" class="list"></div>
+<details><summary>Chọn nhiều tỉnh kết hợp</summary><div><input id="region-multi-search" class="w" placeholder="Tìm tỉnh, ví dụ: Cao Bằng"><div id="region-multi-list"></div><div class="row"><button id="region-multi-add" class="pr">Khoanh các tỉnh đã tích</button><button id="region-multi-clear">Bỏ tích chọn</button></div><div class="mu">Thêm các tỉnh đã tích vào vùng khoanh hiện có. Xóa từng vùng ở danh sách bên dưới.</div></div></details><div id="rgl" class="list"></div><div id="region-summary" aria-live="polite"></div>
 </div></details>
 
 <details><summary>Lộ trình đi thị trường</summary><div>
@@ -631,6 +631,64 @@ function drawDistricts(){
 // Chỉ bổ sung lớp huyện sau thao tác khoanh vùng gốc.
 const shadeBeforeDistricts=shade;
 shade=function(G){shadeBeforeDistricts(G);drawDistricts();if(typeof drawWarehouseSummaries==='function')drawWarehouseSummaries()};
+
+/* ===== BỔ SUNG: CHỌN NHIỀU TỈNH VÀ TỔNG HỢP VÙNG ===== */
+function regionMatchesDealer(r,d){
+  if(r.p)return inA(d,{p:r.p,q:r.q});
+  return regionGeoms(r).some(g=>inGeom(d.lon,d.lat,g));
+}
+function regionUniqueDealers(rows){
+  const seen=new Set();return rows.filter(d=>{
+    const key=d.c?String(d.c):JSON.stringify([d.n,d.lat,d.lon]);
+    if(seen.has(key))return false;seen.add(key);return true;
+  });
+}
+function regionSummaryData(){
+  const groups=S.rg.map(r=>({r,rows:regionUniqueDealers(D.filter(d=>regionMatchesDealer(r,d)))}));
+  const rows=regionUniqueDealers(D.filter(d=>S.rg.some(r=>regionMatchesDealer(r,d))));
+  return{groups,rows,total:rows.reduce((s,d)=>s+d.s,0)};
+}
+function renderRegionSummary(){
+  const box=$('#region-summary');if(!box)return;
+  if(!S.rg.length){box.innerHTML='<div class="mu">Chưa có vùng khoanh để tổng hợp.</div>';return}
+  const s=regionSummaryData(),sum=rows=>rows.reduce((v,d)=>v+d.s,0);
+  box.innerHTML=`<b>Tổng hợp ${S.rg.length} vùng đã khoanh</b><div class="region-grand-total"><b>${fmt(s.rows.length)}</b> đại lý · Doanh số <b>${fmt(s.total)}</b></div><div class="mu">Tổng chung chỉ tính mỗi mã đại lý một lần.</div>
+  <div class="region-summary-table"><table><thead><tr><th>Khu vực</th><th>Đại lý</th><th>Doanh số</th></tr></thead><tbody>${s.groups.map(({r,rows})=>`<tr><td>${esc(r.l||r.p||'Vùng khoanh')}</td><td>${fmt(rows.length)}</td><td>${fmt(sum(rows))}</td></tr>`).join('')}</tbody></table></div>
+  <details><summary>Xem ${fmt(s.rows.length)} đại lý trong các vùng</summary><div><div class="region-summary-table"><table><thead><tr><th>Mã</th><th>Đại lý</th><th>Doanh số</th></tr></thead><tbody>${s.rows.map(d=>`<tr><td>${esc(d.c)}</td><td>${esc(d.n)}</td><td>${fmt(d.s)}</td></tr>`).join('')}</tbody></table></div></div></details>`;
+}
+function initMultiRegions(){
+  const root=$('#region-multi-list');if(root.children.length)return;
+  ADM.slice().sort((a,b)=>a.n.localeCompare(b.n,'vi')).forEach(a=>{
+    const label=document.createElement('label');label.className='region-choice';label.dataset.search=norm(a.n);
+    const input=document.createElement('input');input.type='checkbox';input.value=a.k;input.checked=S.rg.some(r=>r.p===a.k&&!r.q);
+    label.appendChild(input);label.appendChild(document.createTextNode(' '+a.n));root.appendChild(label);
+  });
+}
+function selectedMultiRegions(){return Array.from($('#region-multi-list').querySelectorAll('input:checked')).map(input=>input.value)}
+$('#region-multi-search').oninput=()=>{
+  const text=norm($('#region-multi-search').value);Array.from($('#region-multi-list').children).forEach(label=>{label.hidden=!label.dataset.search.includes(text)});
+};
+$('#region-multi-clear').onclick=()=>{
+  $('#region-multi-list').querySelectorAll('input').forEach(input=>input.checked=false);
+};
+$('#region-multi-add').onclick=()=>{
+  const keys=selectedMultiRegions();if(!keys.length)return toast('Tích chọn ít nhất một tỉnh/thành phố.');
+  const pending=[],missing=[];
+  keys.forEach(p=>{
+    if(S.rg.some(r=>r.p===p&&!r.q))return;
+    const a=ADM.find(x=>x.k===p);if(!a)return;
+    if(!PF.some(f=>f.k===p)){missing.push(a.n);return}
+    pending.push({p,q:'',l:a.n+' (ranh giới cũ)'});
+  });
+  S.rg.push(...pending);save();drawRg(false);
+  const geoms=S.rg.flatMap(regionGeoms);if(geoms.length){
+    const boxes=geoms.map(bbox);
+    map.fitBounds([[Math.min(...boxes.map(b=>b[1])),Math.min(...boxes.map(b=>b[0]))],[Math.max(...boxes.map(b=>b[3])),Math.max(...boxes.map(b=>b[2]))]],{padding:[30,30]});
+  }
+  toast(missing.length?'Chưa có ranh giới: '+missing.join(', '):'Đã kết hợp '+S.rg.length+' vùng.');
+};
+const shadeBeforeRegionSummary=shade;
+shade=function(G){shadeBeforeRegionSummary(G);initMultiRegions();renderRegionSummary()};
 
 /* ===== KHỞI TẠO ===== */
 function drawAll(){drawRL();drawTags();drawWh();drawRg()}
