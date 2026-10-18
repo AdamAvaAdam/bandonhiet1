@@ -50,13 +50,17 @@ img.dk{filter:invert(1) hue-rotate(180deg) brightness(.85) contrast(.9)}
 </div></details>
 
 <details><summary>Khoanh vùng khu vực</summary><div>
+<input id="rq" class="w" placeholder="Nhập tên khu vực, vd: Thái Bình, Hải Phòng, Ân Thi Hưng Yên">
+<button id="rf" class="pr w">Tìm và khoanh vùng</button>
+<div class="mu">Hoặc chọn từ danh sách tỉnh/huyện của đại lý:</div>
 <div id="ra"></div>
-<button id="rb" class="pr w">Khoanh vùng này</button>
+<button id="rb" class="w">Khoanh vùng đã chọn</button>
 <div id="rgl" class="list"></div>
 </div></details>
 
 <details><summary>Lộ trình đi thị trường</summary><div>
-<div class="mu">Danh sách bên dưới theo bộ lọc khu vực và ô tìm kiếm ở trên.</div>
+<div class="mu">Lọc đại lý cần đi:</div><div id="rfa"></div>
+<input id="rq2" class="w" placeholder="Tìm theo tên đại lý">
 <select id="rs" class="w"></select>
 <div id="rl2" class="list"></div>
 <div class="row"><button id="ra1">Chọn tất cả đang lọc</button><button id="rn">Bỏ chọn</button></div>
@@ -77,9 +81,9 @@ img.dk{filter:invert(1) hue-rotate(180deg) brightness(.85) contrast(.9)}
 <script>
 /* ===== CẤU HÌNH ===== */
 const CSV='https://docs.google.com/spreadsheets/d/e/2PACX-1vSqx48yei68qBJFSiHZzxCeGO0df4IDE6md9hzu7TUv5GjgOvU9yIpm4lEN6HJw9zJuek4YYMj8XAyn/pub?output=csv';
-// Ranh giới tỉnh/huyện CŨ (63 tỉnh). Ưu tiên file trong repo, nếu không có sẽ dùng GADM.
-const PU=['data/provinces.geojson','https://geodata.ucdavis.edu/gadm/gadm4.1/json/gadm41_VNM_1.json'];
-const DU=['data/districts.geojson','https://geodata.ucdavis.edu/gadm/gadm4.1/json/gadm41_VNM_2.json'];
+// Tỉnh/huyện lấy từ cột Địa chỉ. File ranh giới dưới đây là TÙY CHỌN, chỉ dùng bổ sung cho đại lý thiếu địa chỉ.
+const PU=['data/provinces.geojson'];
+const DU=['data/districts.geojson'];
 const NP=['NAME_1','Name_VI','ten_tinh','Ten_Tinh','ADM1_VI','Name','name'],NQ=['NAME_2','ten_huyen','Ten_Huyen','ADM2_VI','Name','name'];
 const CSVS=[CSV.replace('pub?output=csv','pub?gid=965897694&single=true&output=csv'),CSV];
 const OSRM='https://router.project-osrm.org';
@@ -97,14 +101,25 @@ function bbox(g){const a=[1e9,1e9,-1e9,-1e9];(function w(c){if(typeof c[0]=='num
 const inRing=(x,y,r)=>{let o=false;for(let i=0,j=r.length-1;i<r.length;j=i++){const a=r[i],b=r[j];if((a[1]>y)!=(b[1]>y)&&x<(b[0]-a[0])*(y-a[1])/(b[1]-a[1])+a[0])o=!o}return o};
 const inGeom=(x,y,g)=>(g.type=='Polygon'?[g.coordinates]:g.coordinates).some(p=>inRing(x,y,p[0])&&!p.slice(1).some(h=>inRing(x,y,h)));
 const inBB=(d,b)=>d.lon>=b[0]&&d.lon<=b[2]&&d.lat>=b[1]&&d.lat<=b[3];
-const inA=(d,a)=>!a||((!a.p||d.pk==a.p)&&(!a.q||d.qk==a.q));
+const inA=(d,a)=>!a||((!a.p||(a.p=='__'?!d.pk:d.pk==a.p))&&(!a.q||d.qk==a.q));
+function parseAddr(a){
+  const sg=(a||'').split(/\s+-\s+|\s*[,;]\s*|\s*\.\s+/).map(x=>x.trim()).filter(Boolean);
+  while(sg.length&&norm(sg[sg.length-1])=='vietnam')sg.pop();
+  if(!sg.length)return{p:'',q:''};
+  const isD=x=>/^(huyện|quận|thị xã|tx|thành phố|tp)\.?\s+/i.test(x),strip=x=>x.replace(/^(tỉnh|thành phố|tp|thị xã|tx|huyện|quận)\.?\s+/i,'').trim();
+  const last=sg[sg.length-1];let p='',q='',from=sg.length-2;
+  if(!isD(last)||/^tỉnh\s/i.test(last)||(sg.length>1&&isD(sg[sg.length-2])))p=strip(last);
+  else{q=last;from=-1}
+  for(let i=from;i>=0&&!q;i--)if(isD(sg[i]))q=sg[i];
+  return{p,q:q.replace(/^tx\.?\s+/i,'Thị xã ').replace(/^tp\.?\s+/i,'Thành phố ')}
+}
 async function getJSON(us){for(const u of us){try{const r=await fetch(u);if(r.ok)return await r.json()}catch(e){}}}
 
 /* ===== TRẠNG THÁI (lưu localStorage, có xuất/nhập file) ===== */
 const K='mkt_v1';
 let S=Object.assign({wh:[],rg:[],as:{},tg:[{id:'t1',name:'Nhà mình',color:'#22c55e',letter:'N'},{id:'t2',name:'Đối thủ',color:'#ef4444',letter:'Đ'},{id:'t3',name:'SSUB Panasonic',color:'#3b82f6',letter:'P'}]},JSON.parse(localStorage.getItem(K)||'{}'));
-const save=()=>localStorage.setItem(K,JSON.stringify(S));
-let D=[],PF=[],DF=[],byC={},FA,WA,RA,R=new Set(),mode=null;
+const save=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(e){toast('Bộ nhớ trình duyệt đã đầy, hãy xóa bớt vùng')}};
+let D=[],PF=[],DF=[],byC={},FA,WA,RA,RF,R=new Set(),mode=null;
 const A=window.A={};
 
 /* ===== BẢN ĐỒ ===== */
@@ -121,7 +136,6 @@ async function loadBounds(){
   const [p,q]=await Promise.all([getJSON(PU),getJSON(DU)]);
   const mk=(j,nk,pk)=>(j?j.features:[]).map(f=>{const pr=f.properties||{},n=pick(pr,nk),pp=pk&&pick(pr,pk);return{n:pretty(n),k:norm(n),pk:pp?norm(pp):'',g:f.geometry,bb:bbox(f.geometry)}});
   PF=mk(p,NP);DF=mk(q,NQ,NP);
-  if(!PF.length)toast('Chưa tải được ranh giới tỉnh/huyện. Hãy đặt data/provinces.geojson và data/districts.geojson vào repo.',8000);
 }
 async function loadData(){
   toast('Đang tải dữ liệu đại lý…');
@@ -131,8 +145,9 @@ async function loadData(){
     if(!(lon>102&&lon<110&&lat>8&&lat<24))return;const s=num(r[5]);
     D.push({c:r[0],n:r[1],a:(r[2]||'')[0]=='#'?'':r[2],lat,lon,s:s>0?s:0,nk:norm(r[1]+r[0])})});
   byC=Object.fromEntries(D.map(d=>[d.c,d]));
-  D.forEach(d=>{const p=PF.find(f=>inBB(d,f.bb)&&inGeom(d.lon,d.lat,f.g));d.pk=p?p.k:'';d.p=p?p.n:'';
-    const q=DF.find(f=>(!d.pk||f.pk==d.pk)&&inBB(d,f.bb)&&inGeom(d.lon,d.lat,f.g));d.qk=q?q.k:'';d.q=q?q.n:''});
+  D.forEach(d=>{const r=parseAddr(d.a);d.p=r.p;d.pk=norm(r.p);d.q=r.q;d.qk=norm(r.q);
+    if(!d.pk&&PF.length){const p=PF.find(f=>inBB(d,f.bb)&&inGeom(d.lon,d.lat,f.g));if(p){d.p=p.n;d.pk=p.k}}
+    if(!d.qk&&d.pk&&DF.length){const q=DF.find(f=>f.pk==d.pk&&inBB(d,f.bb)&&inGeom(d.lon,d.lat,f.g));if(q){d.q=q.n;d.qk=q.k}}});
   $('#dl').innerHTML=D.map(d=>`<option value="${esc(d.n)}">`).join('');
   if(D.length)map.fitBounds(L.latLngBounds(D.map(d=>[d.lat,d.lon])),{padding:[20,20]});
   toast('Đã tải '+D.length+' đại lý');
@@ -141,12 +156,15 @@ async function loadData(){
 /* ===== BỘ CHỌN TỈNH / HUYỆN ===== */
 function mkArea(el,cb){
   el.innerHTML='<div class="row"><select class="p"></select><select class="q"></select></div>';
-  const P=el.querySelector('.p'),Q=el.querySelector('.q'),srt=(a,b)=>a.n.localeCompare(b.n,'vi');
-  P.innerHTML='<option value="">Tất cả tỉnh/TP</option>'+PF.slice().sort(srt).map(f=>`<option value="${f.k}">${esc(f.n)}</option>`).join('');
-  const fq=()=>Q.innerHTML='<option value="">Tất cả quận/huyện</option>'+(P.value?DF.filter(f=>f.pk==P.value).sort(srt).map(f=>`<option value="${f.k}">${esc(f.n)}</option>`).join(''):'');
+  const P=el.querySelector('.p'),Q=el.querySelector('.q'),srt=(a,b)=>a[1].localeCompare(b[1],'vi');
+  const ps=[...new Map(D.filter(d=>d.pk).map(d=>[d.pk,d.p]))].sort(srt);
+  P.innerHTML='<option value="">Tất cả tỉnh/TP</option>'+ps.map(([k,n])=>`<option value="${k}">${esc(n)}</option>`).join('')+'<option value="__">Chưa xác định tỉnh</option>';
+  const fq=()=>{const m=new Map();if(P.value&&P.value!='__')D.forEach(d=>{if(d.qk&&d.pk==P.value)m.set(d.qk,d.q)});
+    Q.innerHTML='<option value="">Tất cả quận/huyện</option>'+[...m].sort(srt).map(([k,n])=>`<option value="${k}">${esc(n)}</option>`).join('')};
   P.onchange=()=>{fq();cb&&cb()};Q.onchange=()=>cb&&cb();fq();
   return{get:()=>({p:P.value,q:Q.value,l:[Q.value&&Q.selectedOptions[0].text,P.value&&P.selectedOptions[0].text].filter(Boolean).join(', ')})};
 }
+function initAreas(){FA=mkArea($('#fa'),refresh);WA=mkArea($('#wa'));RA=mkArea($('#ra'));RF=mkArea($('#rfa'),drawRL)}
 
 /* ===== 1. BẢN ĐỒ NHIỆT + 5. NHÃN ===== */
 const fil=()=>{const a=FA?FA.get():null,t=norm($('#q').value);return D.filter(d=>inA(d,a)&&(!t||d.nk.includes(t)))};
@@ -215,22 +233,38 @@ map.on('click',e=>{if(mode=='wh'){mode=null;map.getContainer().style.cursor='';a
 /* ===== 3. KHOANH VÙNG ===== */
 function drawRg(fit){
   rgL.clearLayers();
-  S.rg.forEach(r=>(r.q?DF.filter(f=>f.k==r.q&&f.pk==r.p):PF.filter(f=>f.k==r.p)).forEach(f=>L.geoJSON({type:'Feature',geometry:f.g},{style:{color:'#f59e0b',weight:3,fill:false,dashArray:'8 4'},interactive:false}).addTo(rgL)));
+  S.rg.forEach(r=>(r.g?[{g:r.g}]:r.q?DF.filter(f=>f.k==r.q&&f.pk==r.p):PF.filter(f=>f.k==r.p)).forEach(f=>L.geoJSON({type:'Feature',geometry:f.g},{style:{color:'#f59e0b',weight:3,fill:false,dashArray:'8 4'},interactive:false}).addTo(rgL)));
   $('#rgl').innerHTML=S.rg.map((r,i)=>`<div><span>${esc(r.l)}</span><button onclick="A.dr(${i})">Xóa</button></div>`).join('')||'<div class="mu">Chưa khoanh vùng nào</div>';
   if(fit&&rgL.getLayers().length)map.fitBounds(rgL.getBounds(),{padding:[30,30]});
 }
-$('#rb').onclick=()=>{const a=RA.get();if(!a.p)return toast('Chọn tỉnh/thành phố trước');S.rg.push({p:a.p,q:a.q,l:a.l});save();drawRg(true)};
+$('#rb').onclick=()=>{const a=RA.get();if(!a.p||a.p=='__')return toast('Chọn tỉnh/thành phố trước');$('#rq').value=a.l;$('#rf').click()};
+$('#rf').onclick=async()=>{
+  const q=$('#rq').value.trim();if(!q)return toast('Nhập tên khu vực cần khoanh');
+  const n=norm(q),p=PF.find(f=>f.k==n),dd=DF.filter(f=>f.k==n);
+  if(p||dd.length==1){const f=p||dd[0];S.rg.push(p?{p:f.k,q:'',l:f.n}:{p:f.pk,q:f.k,l:f.n});save();drawRg(true);$('#rq').value='';return}
+  toast('Đang tìm ranh giới…');
+  try{
+    const j=await (await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&polygon_geojson=1&polygon_threshold=0.003&limit=6&accept-language=vi&countrycodes=vn&q='+encodeURIComponent(q))).json();
+    const r=j.find(x=>x.geojson&&/Polygon/.test(x.geojson.type));
+    if(!r)return toast('Không tìm thấy ranh giới cho "'+q+'". Thử gõ thêm tên tỉnh, ví dụ: Ân Thi, Hưng Yên',6000);
+    S.rg.push({l:r.display_name.split(',').slice(0,2).join(','),g:r.geojson});save();drawRg(true);$('#rq').value='';
+  }catch(e){toast('Không kết nối được dịch vụ tìm ranh giới')}
+};
+$('#rq').onkeydown=e=>{if(e.key=='Enter')$('#rf').click()};
 A.dr=i=>{S.rg.splice(i,1);save();drawRg()};
 
 /* ===== 4. LỘ TRÌNH ===== */
+const rfil=()=>{const a=RF?RF.get():null,t=norm($('#rq2').value);return D.filter(d=>inA(d,a)&&(!t||d.nk.includes(t)))};
 function drawRL(){
-  const F=fil();
-  $('#rl2').innerHTML=F.slice(0,200).map(d=>`<div><label><input type="checkbox" ${R.has(d.c)?'checked':''} onchange="A.tg('${d.c}',this.checked)"> ${esc(d.n)}</label></div>`).join('')+(F.length>200?`<div class="mu">Còn ${F.length-200} đại lý, hãy lọc thêm để thấy</div>`:'')||'<div class="mu">Không có đại lý</div>';
-  $('#ra1').textContent='Chọn tất cả đang lọc ('+R.size+' đã chọn)';
+  const F=rfil();
+  $('#rl2').innerHTML=F.slice(0,200).map(d=>`<div><label><input type="checkbox" ${R.has(d.c)?'checked':''} onchange="A.tg('${d.c}',this.checked)"> ${esc(d.n)}</label><span class="mu">${esc((d.q||d.p||'').replace(/^(huyện|quận|thị xã|thành phố)\s+/i,''))}</span></div>`).join('')+(F.length>200?`<div class="mu">Hiện 200/${F.length} đại lý, hãy lọc thêm để thấy hết</div>`:'')||'<div class="mu">Không có đại lý phù hợp</div>';
+  $('#ra1').textContent='Chọn cả '+F.length+' đại lý đang lọc';
+  $('#rn').textContent='Bỏ chọn ('+R.size+')';
 }
 A.tg=(c,v)=>{v?R.add(c):R.delete(c);drawRL()};
 A.rt=c=>{R.add(c);drawRL();toast('Đã thêm vào lộ trình ('+R.size+' điểm)')};
-$('#ra1').onclick=()=>{fil().forEach(d=>R.add(d.c));drawRL()};
+$('#ra1').onclick=()=>{rfil().forEach(d=>R.add(d.c));drawRL()};
+$('#rq2').oninput=drawRL;
 $('#rn').onclick=()=>{R.clear();drawRL();rtL.clearLayers();$('#ro').innerHTML=''};
 $('#rgo').onclick=async()=>{
   const sel=[...R].map(c=>byC[c]).filter(Boolean),st=S.wh.find(w=>w.id==$('#rs').value);
@@ -282,11 +316,11 @@ $('#imf').onchange=async e=>{try{S=Object.assign(S,JSON.parse(await e.target.fil
 
 /* ===== KHỞI TẠO ===== */
 function drawAll(){drawHeat();drawRL();drawTags();drawWh();drawRg()}
-let ft;const refresh=()=>{clearTimeout(ft);ft=setTimeout(()=>{drawHeat();drawRL()},250)};
+let ft;const refresh=()=>{clearTimeout(ft);ft=setTimeout(drawHeat,250)};
 $('#q').oninput=refresh;
-$('#rld').onclick=async()=>{await loadData();drawAll()};
+$('#rld').onclick=async()=>{await loadData();initAreas();drawAll()};
 (async()=>{
-  try{await loadBounds();FA=mkArea($('#fa'),refresh);WA=mkArea($('#wa'));RA=mkArea($('#ra'));await loadData();drawAll();wx()}
+  try{await loadBounds();await loadData();initAreas();drawAll();wx()}
   catch(e){console.error(e);toast('Lỗi tải dữ liệu. Kiểm tra link Google Sheet đã xuất bản dạng CSV.',8000)}
 })();
 </script></body></html>
