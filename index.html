@@ -36,7 +36,7 @@ img.dk{filter:invert(1) hue-rotate(180deg) brightness(.85) contrast(.9)}
 .district-name-anchor{background:none;border:0}
 .district-name{position:absolute;transform:translate(-50%,-50%);white-space:nowrap;font:600 11px/1.3 system-ui;color:#172033;background:#ffffffe0;border:1px solid #94a3b8;border-radius:4px;padding:2px 4px;box-shadow:0 1px 3px #0002}
 @media(max-width:760px){.district-legend{max-width:205px}.district-legend-scroll{max-height:100px}}
-#region-multi-list{max-height:200px;overflow:auto;border:1px solid var(--bd);border-radius:6px;background:var(--bg);margin:5px 0}.region-choice{display:block;padding:4px 7px}.region-choice[hidden]{display:none}#region-summary{border:1px solid var(--bd);border-radius:7px;padding:8px;margin-top:8px;background:var(--bg)}.region-grand-total{margin:5px 0}.region-summary-table{max-height:260px;overflow:auto;margin:5px 0}.region-summary-table td:first-child,.region-summary-table th:first-child{text-align:left}.region-summary-table th{position:sticky;top:0;background:var(--bg)}#wl{max-height:560px}.list>.warehouse-card{display:block;padding:8px}.warehouse-title{overflow-wrap:anywhere}.warehouse-total{margin:5px 0}.warehouse-table{max-height:280px;overflow:auto}.warehouse-table table{min-width:280px}.warehouse-table th{position:sticky;top:0;background:var(--bg)}.warehouse-table td:first-child{text-align:left;min-width:125px}.warehouse-detail{margin-top:6px}.warehouse-detail[hidden]{display:none}button:disabled{opacity:.6;cursor:wait}#app[hidden]{display:none}#login-panel{min-height:100%;display:grid;place-items:center;padding:24px;background:var(--pn)}#login-form{width:100%;max-width:360px;padding:24px;background:var(--bg);border:1px solid var(--bd);border-radius:12px;box-shadow:0 8px 30px #0001}#login-form h1{font-size:20px}#login-form p{color:var(--mu)}#login-password{margin:8px 0 12px;padding:10px}#login-error{color:#dc2626;min-height:20px;margin-bottom:8px}.warehouse-split{padding:8px 0;line-height:1.65;border-top:1px solid var(--bd);border-bottom:1px solid var(--bd);margin:6px 0}.warehouse-inside{border-left:3px solid #22c55e;padding-left:6px;margin-top:4px}.warehouse-outside{border-left:3px solid #f97316;padding-left:6px;margin-top:4px}</style></head><body>
+.district-legend{width:430px;max-width:calc(100vw - 32px)}.district-legend-scroll{max-height:min(40vh,340px)}.district-legend-place{display:flex;gap:6px;align-items:center}.district-stats{font-size:11px}.district-stats th,.district-stats td{padding:5px 3px}.district-stats td:first-child,.district-stats th:first-child{text-align:left}.district-stats td:nth-child(n+2),.district-stats th:nth-child(n+2){white-space:nowrap;text-align:right}.district-stats thead th{position:sticky;top:0;background:var(--bg);z-index:1}.district-stats tfoot th{border-top:2px solid var(--bd)}.district-stats-total{padding:7px 0;border-top:1px solid var(--bd)}.district-unassigned{color:var(--mu)}@media(max-width:760px){.district-legend{width:340px;max-width:calc(100vw - 32px)}.district-legend-scroll{max-height:22vh}}#region-multi-list{max-height:200px;overflow:auto;border:1px solid var(--bd);border-radius:6px;background:var(--bg);margin:5px 0}.region-choice{display:block;padding:4px 7px}.region-choice[hidden]{display:none}#region-summary{border:1px solid var(--bd);border-radius:7px;padding:8px;margin-top:8px;background:var(--bg)}.region-grand-total{margin:5px 0}.region-summary-table{max-height:260px;overflow:auto;margin:5px 0}.region-summary-table td:first-child,.region-summary-table th:first-child{text-align:left}.region-summary-table th{position:sticky;top:0;background:var(--bg)}#wl{max-height:560px}.list>.warehouse-card{display:block;padding:8px}.warehouse-title{overflow-wrap:anywhere}.warehouse-total{margin:5px 0}.warehouse-table{max-height:280px;overflow:auto}.warehouse-table table{min-width:280px}.warehouse-table th{position:sticky;top:0;background:var(--bg)}.warehouse-table td:first-child{text-align:left;min-width:125px}.warehouse-detail{margin-top:6px}.warehouse-detail[hidden]{display:none}button:disabled{opacity:.6;cursor:wait}#app[hidden]{display:none}#login-panel{min-height:100%;display:grid;place-items:center;padding:24px;background:var(--pn)}#login-form{width:100%;max-width:360px;padding:24px;background:var(--bg);border:1px solid var(--bd);border-radius:12px;box-shadow:0 8px 30px #0001}#login-form h1{font-size:20px}#login-form p{color:var(--mu)}#login-password{margin:8px 0 12px;padding:10px}#login-error{color:#dc2626;min-height:20px;margin-bottom:8px}.warehouse-split{padding:8px 0;line-height:1.65;border-top:1px solid var(--bd);border-bottom:1px solid var(--bd);margin:6px 0}.warehouse-inside{border-left:3px solid #22c55e;padding-left:6px;margin-top:4px}.warehouse-outside{border-left:3px solid #f97316;padding-left:6px;margin-top:4px}</style></head><body>
 <div id="login-panel"><form id="login-form"><h1>Bản đồ phân tích thị trường</h1><p>Nhập mật khẩu để sử dụng ứng dụng.</p><label for="login-password">Mật khẩu</label><input id="login-password" type="password" class="w" autocomplete="current-password" required><div id="login-error" role="alert"></div><button class="pr w" type="submit">Đăng nhập</button></form></div><div id="app" hidden><aside id="side">
 <h1>Bản đồ phân tích thị trường</h1><button id="app-lock" type="button">Khóa ứng dụng</button>
 
@@ -596,6 +596,18 @@ const districtShort=s=>norm(s||'').replace(/^(huyen|quan|thixa|thanhpho)/,'');
 const districtSettings=S.districtView||{on:true,names:true};
 $('#district-on').checked=districtSettings.on!==false;
 $('#district-names').checked=districtSettings.names!==false;
+function districtStatistics(pk,rows,selected){
+ const unique=typeof regionUniqueDealers==='function'?regionUniqueDealers:ls=>ls;
+ const dealers=unique(D.filter(d=>d.pk===pk&&selected.some(r=>inA(d,{p:r.p,q:r.q}))));
+ const stats=rows.map(row=>({...row,dealers:[],bb:bbox(row.f.geometry)})),unassigned=[];
+ dealers.forEach(d=>{
+  const key=districtShort(d.qk||d.q||'');
+  let target=key?stats.find(s=>districtShort(s.f.properties.NAME_2)===key):null;
+  if(!target)target=stats.find(s=>inBB(d,s.bb)&&inGeom(d.lon,d.lat,s.f.geometry));
+  if(target)target.dealers.push(d);else unassigned.push(d);
+ });
+ return{rows:stats,dealers,unassigned};
+}
 function drawDistricts(){
  districtFill.clearLayers();districtBorder.clearLayers();districtNames.clearLayers();
  const legend=districtLegend.getContainer();legend.innerHTML='';legend.style.display='none';
@@ -609,7 +621,7 @@ function drawDistricts(){
   const selected=regions.filter(r=>r.p===pk);
   const rows=all.map((f,i)=>({f,color:districtPalette[i%districtPalette.length]})).filter(({f})=>selected.some(r=>!r.q||districtShort(r.q)===districtShort(f.properties.NAME_2)));
   if(!rows.length){missing.push(ADM.find(a=>a.k===pk)?.n||pk);return}
-  groups.push({name:rows[0].f.properties.NAME_1,rows});
+  groups.push({name:rows[0].f.properties.NAME_1,...districtStatistics(pk,rows,selected)});
  });
  groups.forEach(group=>group.rows.forEach(({f,color})=>{
   L.geoJSON(f,{pane:'districtFill',interactive:false,style:{stroke:false,fillColor:color,fillOpacity:.23}}).addTo(districtFill);
@@ -621,7 +633,10 @@ function drawDistricts(){
  }));
  if(groups.length){
   legend.style.display='block';
-  legend.innerHTML='<b>Màu địa bàn quận/huyện</b><div class="mu">Ranh giới dữ liệu năm 2020</div><div class="district-legend-scroll">'+groups.map(g=>`<div class="district-legend-title">${esc(g.name)}</div>`+g.rows.map(({f,color})=>`<div class="district-legend-row"><span class="district-swatch" style="background:${color}"></span><span>${esc(f.properties.NAME_2)}</span></div>`).join('')).join('')+'</div><div class="mu">Màu phân biệt địa bàn, không biểu thị doanh số.<br>Nguồn: <a href="https://www.geoboundaries.org/" target="_blank" rel="noopener">geoBoundaries / OCHA</a> · CC BY 3.0 IGO</div>';
+  const sum=ls=>ls.reduce((total,d)=>total+d.s,0);
+  const unique=typeof regionUniqueDealers==='function'?regionUniqueDealers:ls=>ls;
+  const totalDealers=unique(groups.flatMap(g=>g.dealers));
+  legend.innerHTML='<b>Đại lý và doanh số theo huyện</b><div class="mu">Toàn bộ đại lý trong các vùng đang khoanh · Ranh giới năm 2020</div><div class="district-legend-scroll">'+groups.map(g=>`<div class="district-legend-title">${esc(g.name)}<div class="mu">${fmt(g.dealers.length)} đại lý · Doanh số ${fmt(sum(g.dealers))}</div></div><table class="district-stats"><thead><tr><th>Quận / huyện</th><th>Đại lý</th><th>Doanh số</th></tr></thead><tbody>`+g.rows.map(({f,color,dealers})=>`<tr><td><span class="district-legend-place"><span class="district-swatch" style="background:${color}"></span><span>${esc(f.properties.NAME_2)}</span></span></td><td>${fmt(dealers.length)}</td><td>${fmt(sum(dealers))}</td></tr>`).join('')+(g.unassigned.length?`<tr class="district-unassigned"><td>Chưa khớp huyện</td><td>${fmt(g.unassigned.length)}</td><td>${fmt(sum(g.unassigned))}</td></tr>`:'')+`</tbody><tfoot><tr><th>Tổng ${esc(g.name)}</th><th>${fmt(g.dealers.length)}</th><th>${fmt(sum(g.dealers))}</th></tr></tfoot></table>`).join('')+'</div>'+`<div class="district-stats-total"><b>Tổng cộng: ${fmt(totalDealers.length)} đại lý</b><br>Doanh số <b>${fmt(sum(totalDealers))}</b></div>`+'<div class="mu">Màu phân biệt địa bàn, không biểu thị doanh số.<br>Nguồn: <a href="https://www.geoboundaries.org/" target="_blank" rel="noopener">geoBoundaries / OCHA</a> · CC BY 3.0 IGO</div>';
  }
  if(missing.length)$('#district-note').textContent='Chưa có ranh giới huyện khớp với vùng: '+missing.join(', ')+'.';
 }
