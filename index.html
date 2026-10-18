@@ -21,7 +21,6 @@ input[type=color]{padding:0;height:30px;width:38px}
 table{width:100%;border-collapse:collapse;font-size:12px}td,th{padding:3px 4px;border-bottom:1px solid var(--bd);text-align:left}td:nth-child(n+2),th:nth-child(n+2){text-align:right}
 .pt{width:22px;height:22px;border-radius:50%;color:#fff;font-weight:700;font-size:12px;display:grid;place-items:center;border:2px solid #fff;box-shadow:0 0 5px #000a}
 .wh{font-size:22px;filter:drop-shadow(0 0 3px #000)}
-.wx{background:#0b1220d9;color:#fff;border-radius:12px;padding:2px 7px;white-space:nowrap;font-size:12px;width:max-content;transform:translate(-50%,-50%)}
 .st{width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-weight:700;font-size:12px;display:grid;place-items:center;border:2px solid #fff}
 .leaflet-popup-content-wrapper,.leaflet-popup-tip{background:var(--bg);color:var(--fg)}.leaflet-popup-content select{width:100%}
 img.dk{filter:invert(1) hue-rotate(180deg) brightness(.85) contrast(.9)}
@@ -44,7 +43,7 @@ img.dk{filter:invert(1) hue-rotate(180deg) brightness(.85) contrast(.9)}
 <details open><summary>Bộ lọc và lớp hiển thị</summary><div>
 <div id="fa"></div>
 <input id="q" class="w" placeholder="Tìm theo tên hoặc mã đại lý">
-<label><input type="checkbox" id="wxon"> Hiện thời tiết trên bản đồ</label>
+
 <div id="stat" class="mu"></div>
 <div class="row"><button id="rld">Tải lại dữ liệu</button><button id="ex">Xuất cài đặt</button><button id="im">Nhập cài đặt</button></div>
 <input type="file" id="imf" accept=".json" hidden>
@@ -54,7 +53,11 @@ img.dk{filter:invert(1) hue-rotate(180deg) brightness(.85) contrast(.9)}
 <input id="wn" class="w" placeholder="Tên kho">
 <div class="row"><input id="wr" type="number" value="50" min="1"><span class="n mu">km bán kính</span></div>
 <div class="mu">Vùng phục vụ (để trống = tính mọi đại lý trong bán kính)</div><div id="wa"></div>
-<input id="wd" class="w" list="dl" placeholder="Gõ tên đại lý để cắm kho theo định vị"><datalist id="dl"></datalist>
+<div class="mu" style="margin-top:6px">Cắm kho bằng tọa độ:</div>
+<div class="row"><label>Kinh độ<input id="wlon" class="w" type="text" inputmode="decimal" placeholder="Ví dụ: 106.0511"></label><label>Vĩ độ<input id="wlat" class="w" type="text" inputmode="decimal" placeholder="Ví dụ: 20.6464"></label></div>
+<button id="wcoords" class="pr w">Cắm theo tọa độ</button>
+<div class="mu" style="margin-top:6px">Hoặc lấy vị trí một đại lý làm điểm cắm kho:</div>
+<input id="wd" class="w" list="dl" placeholder="Gõ tên đại lý để chọn vị trí"><datalist id="dl"></datalist>
 <div class="row"><button id="wd1" class="pr">Cắm theo đại lý</button><button id="wm">Cắm trên bản đồ</button></div>
 <div id="wl" class="list"></div><div id="wi"></div>
 </div></details>
@@ -141,7 +144,7 @@ const dark=L.tileLayer(osm,{attribution:at,maxZoom:19,className:'dk'}).addTo(map
 const light=L.tileLayer(osm,{attribution:at,maxZoom:19});
 const sat=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'© Esri',maxZoom:18});
 L.control.layers({'Nền tối':dark,'Nền sáng':light,'Vệ tinh':sat}).addTo(map);
-const heat=L.layerGroup().addTo(map),rgL=L.featureGroup().addTo(map),whL=L.layerGroup().addTo(map),rtL=L.layerGroup().addTo(map),tagL=L.layerGroup().addTo(map),wxL=L.layerGroup().addTo(map);
+const heat=L.layerGroup().addTo(map),rgL=L.featureGroup().addTo(map),whL=L.layerGroup().addTo(map),rtL=L.layerGroup().addTo(map),tagL=L.layerGroup().addTo(map);
 
 /* ===== DANH MỤC HÀNH CHÍNH TRƯỚC SÁP NHẬP (63 tỉnh/TP) ===== */
 const PROV=['Hà Nội','Hà Giang','Cao Bằng','Bắc Kạn','Tuyên Quang','Lào Cai','Điện Biên','Lai Châu','Sơn La','Yên Bái','Hòa Bình','Thái Nguyên','Lạng Sơn','Quảng Ninh','Bắc Giang','Phú Thọ','Vĩnh Phúc','Bắc Ninh','Hải Dương','Hải Phòng','Hưng Yên','Thái Bình','Hà Nam','Nam Định','Ninh Bình','Thanh Hóa','Nghệ An','Hà Tĩnh','Quảng Bình','Quảng Trị','Thừa Thiên Huế','Đà Nẵng','Quảng Nam','Quảng Ngãi','Bình Định','Phú Yên','Khánh Hòa','Ninh Thuận','Bình Thuận','Kon Tum','Gia Lai','Đắk Lắk','Đắk Nông','Lâm Đồng','Bình Phước','Tây Ninh','Bình Dương','Đồng Nai','Bà Rịa - Vũng Tàu','Hồ Chí Minh','Long An','Tiền Giang','Bến Tre','Trà Vinh','Vĩnh Long','Đồng Tháp','An Giang','Kiên Giang','Cần Thơ','Hậu Giang','Sóc Trăng','Bạc Liêu','Cà Mau'];
@@ -251,6 +254,8 @@ function drawWh(){
   $('#rs').innerHTML='<option value="">Điểm xuất phát: điểm đầu tiên đã chọn</option>'+S.wh.map(w=>`<option value="${w.id}">Xuất phát từ kho ${esc(w.name)}</option>`).join('');
 }
 function addWh(lat,lon,nm){
+  mode=null;map.getContainer().style.cursor='';
+  $('#wlat').value=lat;$('#wlon').value=lon;
   const a=WA.get(),r=Math.max(1,+$('#wr').value||50);
   S.wh.push({id:'w'+Date.now(),name:$('#wn').value.trim()||nm||'Kho mới',lat,lon,r,a:(a.p||a.q)?{p:a.p,q:a.q}:null,al:a.l});
   save();drawWh();A.sel(S.wh[S.wh.length-1].id);
@@ -280,6 +285,19 @@ A.csv=()=>{const [w,rows]=lastRows,t='\ufeffMã,Đại lý,Tỉnh,Huyện,Doanh 
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/csv'}));a.download='kho-'+w.name+'.csv';a.click()};
 A.dw=id=>{S.wh=S.wh.filter(w=>w.id!=id);save();drawWh();$('#wi').innerHTML=''};
 A.wh=c=>{const d=byC[c];map.closePopup();addWh(d.lat,d.lon,'Kho '+d.n)};
+// Nhập kinh độ/vĩ độ: chấp nhận cả dấu chấm và dấu phẩy thập phân.
+function readWhCoords(lonText,latText){
+  const read=t=>{t=String(t).trim();return /^[+-]?(?:\d+(?:[.,]\d+)?|[.,]\d+)$/.test(t)?Number(t.replace(',','.')):NaN};
+  const lon=read(lonText),lat=read(latText);
+  return Number.isFinite(lon)&&Number.isFinite(lat)&&lon>=-180&&lon<=180&&lat>=-90&&lat<=90?{lat,lon}:null;
+}
+$('#wcoords').onclick=()=>{
+  const point=readWhCoords($('#wlon').value,$('#wlat').value);
+  if(!point){toast('Nhập kinh độ từ -180 đến 180 và vĩ độ từ -90 đến 90. Ví dụ: kinh độ 106.0511, vĩ độ 20.6464.',6500);return}
+  addWh(point.lat,point.lon);
+};
+['#wlon','#wlat'].forEach(id=>$(id).onkeydown=e=>{if(e.key==='Enter')$('#wcoords').click()});
+
 $('#wd1').onclick=()=>{const d=D.find(x=>x.n==$('#wd').value);d?addWh(d.lat,d.lon,'Kho '+d.n):toast('Chọn một đại lý trong danh sách gợi ý')};
 $('#wm').onclick=()=>{mode='wh';map.getContainer().style.cursor='crosshair';toast('Bấm vào bản đồ để cắm kho')};
 map.on('click',e=>{if(mode=='wh'){mode=null;map.getContainer().style.cursor='';addWh(e.latlng.lat,e.latlng.lng)}});
@@ -370,21 +388,8 @@ $('#ta').onclick=()=>{const n=$('#tn').value.trim();if(!n)return toast('Nhập t
 $('#tb').onclick=()=>{const F=fil();if(!F.length||!confirm('Gán nhãn cho '+F.length+' đại lý đang lọc?'))return;F.forEach(d=>S.as[d.c]=$('#tsel').value);save();drawTags();drawHeat()};
 $('#tu').onclick=()=>{const F=fil();if(!F.length||!confirm('Gỡ nhãn của '+F.length+' đại lý đang lọc?'))return;F.forEach(d=>delete S.as[d.c]);save();drawTags();drawHeat()};
 
-/* ===== 6. THỜI TIẾT (Open-Meteo, không cần khóa) ===== */
-const WX=c=>c==0?'☀️':c<3?'🌤️':c==3?'☁️':c<50?'🌫️':c<60?'🌦️':c<70?'🌧️':c<80?'❄️':c<90?'🌧️':'⛈️';
-async function wx(){
-  if(!$('#wxon').checked){wxL.clearLayers();return}
-  const b=map.getBounds().pad(-.1),n=4,pts=[];
-  for(let i=0;i<n;i++)for(let j=0;j<n;j++)pts.push([b.getSouth()+(b.getNorth()-b.getSouth())*(i+.5)/n,b.getWest()+(b.getEast()-b.getWest())*(j+.5)/n]);
-  try{
-    const j=await (await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${pts.map(p=>p[0].toFixed(3))}&longitude=${pts.map(p=>p[1].toFixed(3))}&current=temperature_2m,weather_code,wind_speed_10m,precipitation`)).json();
-    wxL.clearLayers();if(!$('#wxon').checked)return;
-    (Array.isArray(j)?j:[j]).forEach(r=>{const c=r.current;
-      L.marker([r.latitude,r.longitude],{interactive:false,icon:L.divIcon({className:'',iconSize:[0,0],html:`<div class="wx">${WX(c.weather_code)} ${Math.round(c.temperature_2m)}°C · ${Math.round(c.wind_speed_10m)} km/h${c.precipitation?' · '+c.precipitation+' mm':''}</div>`})}).addTo(wxL)});
-  }catch(e){toast('Không tải được thời tiết')}
-}
 let zt;map.on('zoomend',()=>{clearTimeout(zt);zt=setTimeout(drawHeat,150)});
-let wt;map.on('moveend',()=>{clearTimeout(wt);wt=setTimeout(wx,600)});$('#wxon').onchange=wx;
+
 
 /* ===== CÀI ĐẶT: XUẤT / NHẬP ===== */
 $('#ex').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S)],{type:'application/json'}));a.download='cai-dat-ban-do.json';a.click()};
@@ -451,7 +456,7 @@ let ft;const refresh=()=>{clearTimeout(ft);ft=setTimeout(drawHeat,250)};
 $('#q').oninput=refresh;
 $('#rld').onclick=async()=>{await loadData();initAreas();drawAll()};
 (async()=>{
-  try{await Promise.all([loadBounds(),loadAdm()]);await loadData();initAreas();drawAll();wx()}
+  try{await Promise.all([loadBounds(),loadAdm()]);await loadData();initAreas();drawAll()}
   catch(e){console.error(e);toast('Lỗi tải dữ liệu. Kiểm tra link Google Sheet đã xuất bản dạng CSV.',8000)}
 })();
 </script></body></html>
