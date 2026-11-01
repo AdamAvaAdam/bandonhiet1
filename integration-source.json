@@ -1,0 +1,28 @@
+{
+  "target": {
+    "repo": "AdamAvaAdam/bandonhiet1",
+    "base": "b694b82fcd2452fca224e40b6f65650583b8d8ba",
+    "indexSha256": "5cdd6ae6a57ffe4e52e8f2eee3b2d9c440c9737076184ce031e7615d5f341c4f"
+  },
+  "source": {
+    "repo": "AdamAvaAdam/BHVer1",
+    "morningCommit": "42593d612d14496c89adb1718c91011508a034ce",
+    "morningTime": "2026-11-01T10:32:35+07:00",
+    "head": "5a4d7e4f631ed6ed31097fd6cbe1aab52b5a6616",
+    "indexSha256": "0ce0c41a070a3b95bb4372c5154bbbb26de79bd8f89e9b6d7871abd5f0fb781e",
+    "mapSha256": "ffc31809621a01c0715e5c1e0f39d1306e8d4426f5c5c0723b33328a39f4b505",
+    "mapIdenticalToMorning": true,
+    "adaptations": [
+      "Load map document directly in the verified Google shell; remove unrelated sales-app payload.",
+      "Bound initial zoom for one location or multiple customers sharing one point.",
+      "Clear old warehouse totals and map legends after period-load failure."
+    ],
+    "integratedMapSha256": "438cc9f50d722a13a6ceb67e05d8dc14f771cab650e9cd43c7c271109af2b91a"
+  },
+  "approach": "Preserve original entry point, data URL, password gate, settings key and tools. Add embedded business pages. Reuse verified source Google read-only adapter and map; no direct Warehouse credentials.",
+  "files": {
+    "revenue-map.html": "5ea0232fab5881afaf7ab2383819dbf311749d83b50d68f241e0b52fe9421404",
+    "index.html": "08aac57f87c254f43e4d4026c5e9d834f06a8ffd658f360193514f72b2f0fbe6",
+    "analysis-ssub.html": "1ff05d26ea265418d1258d9a3a3ef2045bd3b231d61b6e570dde7ea4b374251a"
+  }
+}

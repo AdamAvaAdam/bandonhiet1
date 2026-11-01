@@ -5,11 +5,12 @@
 :root{font:15px system-ui,Arial;color:#172b40;background:#f4f7fb}*{box-sizing:border-box}body{margin:0}main{max-width:1200px;margin:auto;padding:25px}h1{font-size:26px;margin:0 0 6px}p{color:#62758a}section{background:white;border:1px solid #dde6ef;border-radius:14px;padding:20px;margin:16px 0}label{display:block;font-weight:600;margin:10px 0 5px}input,select,button{font:inherit;padding:10px;border:1px solid #ccd8e4;border-radius:9px;max-width:100%}button{background:#174b88;color:white;cursor:pointer}button:disabled{opacity:.4} .fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}.card{padding:16px;border-radius:10px;background:#f4f8fd}.card strong{display:block;font-size:26px}.tablewrap{overflow:auto}table{border-collapse:collapse;width:100%}th,td{text-align:left;border-bottom:1px solid #e5edf4;padding:10px}th{background:#f7fafd}small{color:#6d7e90} .warn{color:#9d4900} .legend{display:flex;gap:16px;flex-wrap:wrap}.tag{border-radius:16px;padding:3px 9px;background:#e9f1fb}.vt{background:#e3f6e9}.vh{background:#ffe9e7}#message{min-height:20px} .muted{color:#708095}</style></head>
 <body><main>
 <h1>Bản đồ nhiệt & Phân tích kinh doanh</h1>
-<p>Thử nghiệm độc lập: phân tích mạng lưới Panasonic S-SUB Việt Tuấn / Việt Hàn từ dữ liệu WH_KhachHang. Không ghi dữ liệu lên máy chủ.</p>
+<p>Phân tích mạng lưới Panasonic S-SUB Việt Tuấn / Việt Hàn từ dữ liệu WH_KhachHang. Không ghi dữ liệu lên máy chủ.</p>
 <section><h2>1. Nạp dữ liệu khách hàng</h2>
-<input type="file" id="csv" accept=".csv,text/csv"><p><small>Xuất tab WH_KhachHang ra CSV UTF-8. Công cụ xử lý trong trình duyệt; không tự kết nối Warehouse. Cột J được mặc định là nhãn S-SUB.</small></p>
+<input type="file" id="csv" accept=".csv,text/csv"><p><small>Xuất tab WH_KhachHang ra CSV UTF-8. Công cụ xử lý trong trình duyệt; không tự kết nối Warehouse. Mặc định cột J là nhãn S-SUB khi đủ 10 cột. Hãy xác nhận tiêu đề và giá trị VH1/VT1; công cụ không tự suy ra nhóm từ tên đại lý.</small></p>
 <div class="fields">
 <div><label for="colType">Cột phân loại S-SUB</label><select id="colType"></select></div>
+<div><label for="colCode">Cột mã khách hàng</label><select id="colCode"></select></div>
 <div><label for="colName">Cột tên đại lý</label><select id="colName"></select></div>
 <div><label for="colArea">Cột địa bàn</label><select id="colArea"></select></div>
 <div><label for="filter">Lọc nhóm</label><select id="filter"><option value="all">Tất cả</option><option value="VT1">VT1 – Việt Tuấn</option><option value="VH1">VH1 – Việt Hàn</option><option value="other">Khác / chưa phân loại</option></select></div>
@@ -23,17 +24,18 @@
 <section><h2>3. Địa bàn ưu tiên kiểm tra</h2><p>Ưu tiên những địa bàn có xuất hiện VH1; đây là tín hiệu cần xem xét, chưa đủ cơ sở kết luận mất thị phần.</p>
 <div class="tablewrap"><table><thead><tr><th>Địa bàn</th><th>VT1</th><th>VH1</th><th>Hành động đề xuất</th></tr></thead><tbody id="areas"><tr><td colspan="4" class="muted">Chưa có dữ liệu</td></tr></tbody></table></div></section>
 <section><h2>4. Tra cứu đại lý</h2><div class="fields"><div><label for="search">Tìm đại lý</label><input id="search" placeholder="Tên hoặc mã khách hàng"></div></div>
-<div class="tablewrap"><table><thead><tr><th>Đại lý</th><th>Địa bàn</th><th>Nhóm S-SUB</th></tr></thead><tbody id="customers"><tr><td colspan="3" class="muted">Chưa có dữ liệu</td></tr></tbody></table></div><p><small>Giới hạn hiển thị 200 bản ghi. Các phân tích doanh số, khách giảm mua và bản đồ tọa độ cần nguồn dữ liệu bổ sung.</small></p></section>
+<div class="tablewrap"><table><thead><tr><th>Mã khách</th><th>Đại lý</th><th>Địa bàn</th><th>Nhóm S-SUB</th></tr></thead><tbody id="customers"><tr><td colspan="3" class="muted">Chưa có dữ liệu</td></tr></tbody></table></div><p><small>Giới hạn hiển thị 200 bản ghi. Các phân tích doanh số, khách giảm mua và bản đồ tọa độ cần nguồn dữ liệu bổ sung.</small></p></section>
 </main>
 <script>
 'use strict';
 const $=id=>document.getElementById(id);
 let headers=[],rows=[];
 function parseCSV(text){
+  const first=text.split(/\r?\n/)[0],delimiter=first.split(';').length>first.split(',').length?';':',';
   const out=[];let row=[],cell='',quote=false;
   for(let i=0;i<text.length;i++){const c=text[i];
     if(c==='"'){if(quote&&text[i+1]==='"'){cell+='"';i++}else quote=!quote}
-    else if(!quote&&(c===','||c==='\n'||c==='\r')){if(c!==','&&c==='\r'&&text[i+1]==='\n')i++;row.push(cell);cell='';if(c!==','){out.push(row);row=[]}}
+    else if(!quote&&(c===delimiter||c==='\n'||c==='\r')){if(c!==delimiter&&c==='\r'&&text[i+1]==='\n')i++;row.push(cell);cell='';if(c!==delimiter){out.push(row);row=[]}}
     else cell+=c;
   }
   if(quote)throw Error('CSV có dấu nháy kép chưa đóng.');
@@ -48,7 +50,7 @@ function textCell(row,id){return String(row[+$(id).value]||'').trim()}
 function cell(tag,txt){const el=document.createElement(tag);el.textContent=txt;return el}
 function draw(){
  if(!headers.length)return;
- const all=rows.map(r=>({name:textCell(r,'colName'),area:textCell(r,'colArea')||'Chưa rõ địa bàn',kind:kind(r)}));
+ const all=rows.map(r=>({code:textCell(r,'colCode'),name:textCell(r,'colName'),area:textCell(r,'colArea')||'Chưa rõ địa bàn',kind:kind(r)}));
  $('total').textContent=all.length.toLocaleString('vi-VN');
  $('vt').textContent=all.filter(x=>x.kind==='VT1').length.toLocaleString('vi-VN');
  $('vh').textContent=all.filter(x=>x.kind==='VH1').length.toLocaleString('vi-VN');
@@ -59,15 +61,15 @@ function draw(){
  if(!groups.size){const tr=document.createElement('tr');const td=cell('td','Chưa có dữ liệu');td.colSpan=4;tr.appendChild(td);body.appendChild(tr)}
  const f=$('filter').value,q=$('search').value.toLocaleLowerCase('vi');
  const list=$('customers');list.textContent='';
- all.filter(x=>(f==='all'||(f==='other'?x.kind!=='VT1'&&x.kind!=='VH1':x.kind===f))&&([x.name,x.area,x.kind].join(' ').toLocaleLowerCase('vi').includes(q))).slice(0,200).forEach(x=>{const tr=document.createElement('tr');[x.name||'(không có tên)',x.area,x.kind||'Chưa phân loại'].forEach(v=>tr.appendChild(cell('td',v)));list.appendChild(tr)});
+ all.filter(x=>(f==='all'||(f==='other'?x.kind!=='VT1'&&x.kind!=='VH1':x.kind===f))&&([x.code,x.name,x.area,x.kind].join(' ').toLocaleLowerCase('vi').includes(q))).slice(0,200).forEach(x=>{const tr=document.createElement('tr');[x.code,x.name||'(không có tên)',x.area,x.kind||'Chưa phân loại'].forEach(v=>tr.appendChild(cell('td',v)));list.appendChild(tr)});
 }
 $('csv').addEventListener('change',async e=>{
   const file=e.target.files?.[0];if(!file)return;
   try{const data=parseCSV((await file.text()).replace(/^\uFEFF/,''));if(data.length<2)throw Error('Tệp cần có dòng tiêu đề và ít nhất một dòng dữ liệu.');
-    headers=data[0]; rows=data.slice(1).filter(r=>r.some(v=>String(v).trim()));if(headers.length<10)throw Error('Không thấy đủ 10 cột để đọc cột J. Hãy kiểm tra dấu phân cách của CSV.');
-    choose('colType',/s.?sub|phân loại|nhóm/i,9);choose('colName',/tên.*(khách|đại lý)|khách hàng|đại lý/i,1);choose('colArea',/huyện|quận|địa bàn|tỉnh|thành phố|khu vực/i,2);
-    $('colType').value='9';$('message').textContent=`Đã đọc ${rows.length.toLocaleString('vi-VN')} dòng. Kiểm tra đúng cột tên và địa bàn trước khi phân tích.`;draw();
-  }catch(err){headers=[];rows=[];$('message').textContent='Không thể đọc dữ liệu: '+err.message}
+    headers=data[0]; rows=data.slice(1).filter(r=>r.some(v=>String(v).trim()));if(headers.length<2)throw Error('Cần ít nhất hai cột; kiểm tra dấu phân cách của CSV.');
+    choose('colCode',/^CustomerCode$|^Code$|mã.*(khách|đại lý)/i,0);choose('colType',/s.?sub|phân loại|nhóm/i,9);choose('colName',/^CustomerName$|tên.*(khách|đại lý)|khách hàng|đại lý/i,1);choose('colArea',/^ProvinceName$|huyện|quận|địa bàn|tỉnh|thành phố|khu vực/i,2);
+    if(headers.length>=10)$('colType').value='9';$('message').textContent=`Đã đọc ${rows.length.toLocaleString('vi-VN')} dòng. Kiểm tra đúng cột tên và địa bàn trước khi phân tích.`;const codes=rows.map(r=>textCell(r,'colCode')).filter(Boolean),duplicates=codes.length-new Set(codes).size;if(duplicates)$('message').textContent+=' Có '+duplicates+' mã khách lặp; tổng bên dưới là số dòng, cần đối chiếu trước khi báo cáo.';draw();
+  }catch(err){headers=[];rows=[];for(const id of ['total','vt','vh','other'])$(id).textContent='—';for(const id of ['areas','customers'])$(id).textContent='';$('message').textContent='Không thể đọc dữ liệu: '+err.message}
 });
-['colType','colName','colArea','filter','search'].forEach(id=>$(id).addEventListener(id==='search'?'input':'change',draw));
+['colCode','colType','colName','colArea','filter','search'].forEach(id=>$(id).addEventListener(id==='search'?'input':'change',draw));
 </script></body></html>
